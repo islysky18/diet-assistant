@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Health - Diet Assistant</title>
+</head>
+<body>
+<main>
+    <h1>Health</h1>
+
+    <p th:if="${successMessage}" th:text="${successMessage}"></p>
+
+    <form th:action="@{/health}" th:object="${healthMetricRequest}" method="post">
+        <div>
+            <label for="metricType">Metric type</label>
+            <select id="metricType" th:field="*{metricType}" required>
+                <option value="">Select a metric</option>
+                <option th:each="type : ${metricTypes}"
+                        th:value="${type.name()}"
+                        th:data-default-unit="${type.defaultUnit}"
+                        th:text="${type.displayName}">
+                </option>
+            </select>
+            <p th:if="${#fields.hasErrors('metricType')}" th:errors="*{metricType}"></p>
+        </div>
+
+        <div>
+            <label for="value">Value</label>
+            <input id="value" type="number" th:field="*{value}" min="0.01" step="0.01" required>
+            <p th:if="${#fields.hasErrors('value')}" th:errors="*{value}"></p>
+        </div>
+
+        <div>
+            <label for="unit">Unit</label>
+            <input id="unit" type="text" th:field="*{unit}" maxlength="50" required>
+            <p th:if="${#fields.hasErrors('unit')}" th:errors="*{unit}"></p>
+        </div>
+
+        <div>
+            <label for="measuredDate">Measured date</label>
+            <input id="measuredDate" type="date" th:field="*{measuredDate}" required>
+            <p th:if="${#fields.hasErrors('measuredDate')}" th:errors="*{measuredDate}"></p>
+        </div>
+
+        <div>
+            <label for="notes">Notes</label>
+            <textarea id="notes" th:field="*{notes}" rows="4"></textarea>
+            <p th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+        </div>
+
+        <button type="submit">Save health metric</button>
+    </form>
+
+    <section>
+        <h2>Saved metrics</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Measured date</th>
+                <th>Metric</th>
+                <th>Value</th>
+                <th>Unit</th>
+                <th>Notes</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(healthMetrics)}">
+                <td colspan="6">No health metrics saved yet.</td>
+            </tr>
+            <tr th:each="metric : ${healthMetrics}">
+                <td th:text="${metric.measuredDate}"></td>
+                <td th:text="${metric.metricType.displayName}"></td>
+                <td th:text="${metric.value}"></td>
+                <td th:text="${metric.unit}"></td>
+                <td th:text="${metric.notes} ?: ''"></td>
+                <td>
+                    <form th:action="@{/health/{id}/delete(id=${metric.id})}" method="post">
+                        <button type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+</main>
+<script>
+    const metricTypeSelect = document.getElementById("metricType");
+    const unitInput = document.getElementById("unit");
+
+    metricTypeSelect.addEventListener("change", () => {
+        const selectedOption = metricTypeSelect.selectedOptions[0];
+        unitInput.value = selectedOption?.dataset.defaultUnit || "";
+    });
+
+    if (metricTypeSelect.value && !unitInput.value) {
+        const selectedOption = metricTypeSelect.selectedOptions[0];
+        unitInput.value = selectedOption?.dataset.defaultUnit || "";
+    }
+</script>
+</body>
+</html>
