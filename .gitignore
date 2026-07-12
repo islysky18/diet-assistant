@@ -9,6 +9,7 @@ target/
 Thumbs.db
 
 ### Environment / local configuration ###
+.ai/
 .env
 .env.*
 !.env.example
