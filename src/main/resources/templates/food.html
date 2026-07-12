@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Food - Diet Assistant</title>
+</head>
+<body>
+<main>
+    <nav>
+        <a th:href="@{/}">Today</a>
+        <a th:href="@{/profile}">Profile</a>
+        <a th:href="@{/health}">Health</a>
+        <a th:href="@{/food}">Food</a>
+    </nav>
+
+    <h1>Food</h1>
+
+    <p th:if="${successMessage}" th:text="${successMessage}"></p>
+
+    <form th:action="@{/food}" th:object="${foodEntryRequest}" method="post">
+        <div>
+            <label for="foodName">Food name</label>
+            <input id="foodName" type="text" th:field="*{foodName}" maxlength="255" required>
+            <p th:if="${#fields.hasErrors('foodName')}" th:errors="*{foodName}"></p>
+        </div>
+
+        <div>
+            <label for="amount">Amount</label>
+            <input id="amount" type="number" th:field="*{amount}" min="0.01" step="0.01" required>
+            <p th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></p>
+        </div>
+
+        <div>
+            <label for="unit">Unit</label>
+            <input id="unit" type="text" th:field="*{unit}" maxlength="50" required>
+            <p th:if="${#fields.hasErrors('unit')}" th:errors="*{unit}"></p>
+        </div>
+
+        <div>
+            <label for="calories">Calories</label>
+            <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
+        </div>
+
+        <div>
+            <label for="proteinGrams">Protein (g)</label>
+            <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
+        </div>
+
+        <div>
+            <label for="carbohydrateGrams">Carbohydrates (g)</label>
+            <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
+        </div>
+
+        <div>
+            <label for="fatGrams">Fat (g)</label>
+            <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
+        </div>
+
+        <div>
+            <label for="fiberGrams">Fiber (g)</label>
+            <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
+        </div>
+
+        <div>
+            <label for="mealType">Meal type</label>
+            <select id="mealType" th:field="*{mealType}" required>
+                <option value="">Select a meal type</option>
+                <option th:each="type : ${mealTypes}"
+                        th:value="${type.name()}"
+                        th:text="${type.displayName}">
+                </option>
+            </select>
+            <p th:if="${#fields.hasErrors('mealType')}" th:errors="*{mealType}"></p>
+        </div>
+
+        <div>
+            <label for="eatenAt">Eaten at</label>
+            <input id="eatenAt" type="datetime-local" th:field="*{eatenAt}" required>
+            <p th:if="${#fields.hasErrors('eatenAt')}" th:errors="*{eatenAt}"></p>
+        </div>
+
+        <div>
+            <label for="notes">Notes</label>
+            <textarea id="notes" th:field="*{notes}" rows="4"></textarea>
+            <p th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+        </div>
+
+        <button type="submit">Save food entry</button>
+    </form>
+
+    <section>
+        <h2>Daily totals</h2>
+        <dl>
+            <dt>Calories</dt>
+            <dd th:text="${dailyTotals.calories}"></dd>
+            <dt>Protein (g)</dt>
+            <dd th:text="${dailyTotals.proteinGrams}"></dd>
+            <dt>Carbohydrates (g)</dt>
+            <dd th:text="${dailyTotals.carbohydrateGrams}"></dd>
+            <dt>Fat (g)</dt>
+            <dd th:text="${dailyTotals.fatGrams}"></dd>
+            <dt>Fiber (g)</dt>
+            <dd th:text="${dailyTotals.fiberGrams}"></dd>
+        </dl>
+    </section>
+
+    <section>
+        <h2>Today's entries</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Eaten at</th>
+                <th>Meal</th>
+                <th>Food</th>
+                <th>Amount</th>
+                <th>Calories</th>
+                <th>Protein</th>
+                <th>Carbs</th>
+                <th>Fat</th>
+                <th>Fiber</th>
+                <th>Notes</th>
+                <th>Action</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(foodEntries)}">
+                <td colspan="11">No food entries recorded today.</td>
+            </tr>
+            <tr th:each="entry : ${foodEntries}">
+                <td th:text="${#temporals.format(entry.eatenAt, 'yyyy-MM-dd HH:mm')}"></td>
+                <td th:text="${entry.mealType.displayName}"></td>
+                <td th:text="${entry.foodName}"></td>
+                <td th:text="${entry.amount + ' ' + entry.unit}"></td>
+                <td th:text="${entry.calories}"></td>
+                <td th:text="${entry.proteinGrams}"></td>
+                <td th:text="${entry.carbohydrateGrams}"></td>
+                <td th:text="${entry.fatGrams}"></td>
+                <td th:text="${entry.fiberGrams}"></td>
+                <td th:text="${entry.notes} ?: ''"></td>
+                <td>
+                    <form th:action="@{/food/{id}/delete(id=${entry.id})}" method="post">
+                        <button type="submit">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
+</main>
+</body>
+</html>
