@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Nutrition Goals - Diet Assistant</title>
+</head>
+<body>
+<main>
+    <nav>
+        <a th:href="@{/}">Today</a>
+        <a th:href="@{/profile}">Profile</a>
+        <a th:href="@{/health}">Health</a>
+        <a th:href="@{/nutrition-goals}">Nutrition Goals</a>
+        <a th:href="@{/food}">Food</a>
+        <a th:href="@{/foods}">Foods</a>
+    </nav>
+
+    <h1>Nutrition Goals</h1>
+
+    <p>
+        Nutrition needs vary from person to person. These are user-selected tracking goals
+        and are not medical advice.
+    </p>
+    <p th:if="${successMessage}" th:text="${successMessage}"></p>
+
+    <form th:action="@{/nutrition-goals}" th:object="${nutritionGoalRequest}" method="post">
+        <div>
+            <label for="dailyCalories">Daily calories</label>
+            <input id="dailyCalories" type="number" th:field="*{dailyCalories}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('dailyCalories')}" th:errors="*{dailyCalories}"></p>
+        </div>
+
+        <div>
+            <label for="dailyProteinGrams">Daily protein (g)</label>
+            <input id="dailyProteinGrams" type="number" th:field="*{dailyProteinGrams}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('dailyProteinGrams')}" th:errors="*{dailyProteinGrams}"></p>
+        </div>
+
+        <div>
+            <label for="dailyCarbohydrateGrams">Daily carbohydrates (g)</label>
+            <input id="dailyCarbohydrateGrams" type="number" th:field="*{dailyCarbohydrateGrams}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('dailyCarbohydrateGrams')}" th:errors="*{dailyCarbohydrateGrams}"></p>
+        </div>
+
+        <div>
+            <label for="dailyFatGrams">Daily fat (g)</label>
+            <input id="dailyFatGrams" type="number" th:field="*{dailyFatGrams}" min="0" step="0.01" required>
+            <p th:if="${#fields.hasErrors('dailyFatGrams')}" th:errors="*{dailyFatGrams}"></p>
+        </div>
+
+        <button type="submit" th:text="${hasNutritionGoal ? 'Update nutrition goals' : 'Set nutrition goals'}"></button>
+    </form>
+</main>
+</body>
+</html>

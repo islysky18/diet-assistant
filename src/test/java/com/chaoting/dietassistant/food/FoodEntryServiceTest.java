@@ -7,6 +7,7 @@ import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneOffset;
@@ -97,14 +98,14 @@ class FoodEntryServiceTest {
     }
 
     @Test
-    void listTodayEntriesUsesCurrentDayBoundariesAndRepositoryOrder() {
+    void listEntriesForDateUsesSelectedDayBoundariesAndRepositoryOrder() {
         FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
         FoodEntry first = legacyEntry("Lunch", "500.00", LocalDateTime.of(2026, 6, 22, 12, 30));
         FoodEntry second = legacyEntry("Breakfast", "300.00", LocalDateTime.of(2026, 6, 22, 8, 0));
         foodEntryRepository.entries = List.of(first, second);
         FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
 
-        List<FoodEntryResponse> responses = foodEntryService.listTodayEntries();
+        List<FoodEntryResponse> responses = foodEntryService.listEntriesForDate(LocalDate.of(2026, 6, 22));
 
         assertThat(foodEntryRepository.profileIdForList).isEqualTo(7L);
         assertThat(foodEntryRepository.startInclusive).isEqualTo(LocalDateTime.of(2026, 6, 22, 0, 0));
