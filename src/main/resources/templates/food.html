@@ -12,6 +12,7 @@
         <a th:href="@{/profile}">Profile</a>
         <a th:href="@{/health}">Health</a>
         <a th:href="@{/food}">Food</a>
+        <a th:href="@{/foods}">Foods</a>
     </nav>
 
     <h1>Food</h1>
@@ -19,52 +20,34 @@
     <p th:if="${successMessage}" th:text="${successMessage}"></p>
 
     <form th:action="@{/food}" th:object="${foodEntryRequest}" method="post">
+        <p th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
+
         <div>
-            <label for="foodName">Food name</label>
-            <input id="foodName" type="text" th:field="*{foodName}" maxlength="255" required>
-            <p th:if="${#fields.hasErrors('foodName')}" th:errors="*{foodName}"></p>
+            <label for="savedFoodId">Saved food</label>
+            <select id="savedFoodId" th:field="*{savedFoodId}" required>
+                <option value="">Select a saved food</option>
+                <option th:each="savedFood : ${savedFoods}"
+                        th:value="${savedFood.id}"
+                        th:text="${savedFood.displayName}"
+                        th:data-reference-unit="${savedFood.referenceUnit}">
+                </option>
+            </select>
+            <p th:if="${#fields.hasErrors('savedFoodId')}" th:errors="*{savedFoodId}"></p>
+            <p th:if="${#lists.isEmpty(savedFoods)}">
+                No active saved foods yet. Add one from <a th:href="@{/foods}">Foods</a>.
+            </p>
         </div>
 
         <div>
-            <label for="amount">Amount</label>
+            <label for="amount">Consumed amount</label>
             <input id="amount" type="number" th:field="*{amount}" min="0.01" step="0.01" required>
             <p th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></p>
         </div>
 
         <div>
-            <label for="unit">Unit</label>
+            <label for="unit">Consumed unit</label>
             <input id="unit" type="text" th:field="*{unit}" maxlength="50" required>
             <p th:if="${#fields.hasErrors('unit')}" th:errors="*{unit}"></p>
-        </div>
-
-        <div>
-            <label for="calories">Calories</label>
-            <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
-        </div>
-
-        <div>
-            <label for="proteinGrams">Protein (g)</label>
-            <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
-        </div>
-
-        <div>
-            <label for="carbohydrateGrams">Carbohydrates (g)</label>
-            <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
-        </div>
-
-        <div>
-            <label for="fatGrams">Fat (g)</label>
-            <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
-        </div>
-
-        <div>
-            <label for="fiberGrams">Fiber (g)</label>
-            <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
         </div>
 
         <div>
@@ -117,6 +100,7 @@
             <tr>
                 <th>Eaten at</th>
                 <th>Meal</th>
+                <th>Brand</th>
                 <th>Food</th>
                 <th>Amount</th>
                 <th>Calories</th>
@@ -130,11 +114,12 @@
             </thead>
             <tbody>
             <tr th:if="${#lists.isEmpty(foodEntries)}">
-                <td colspan="11">No food entries recorded today.</td>
+                <td colspan="12">No food entries recorded today.</td>
             </tr>
             <tr th:each="entry : ${foodEntries}">
                 <td th:text="${#temporals.format(entry.eatenAt, 'yyyy-MM-dd HH:mm')}"></td>
                 <td th:text="${entry.mealType.displayName}"></td>
+                <td th:text="${entry.savedFoodBrand} ?: ''"></td>
                 <td th:text="${entry.foodName}"></td>
                 <td th:text="${entry.amount + ' ' + entry.unit}"></td>
                 <td th:text="${entry.calories}"></td>
@@ -153,5 +138,16 @@
         </table>
     </section>
 </main>
+<script>
+    const savedFoodSelect = document.getElementById("savedFoodId");
+    const unitInput = document.getElementById("unit");
+
+    savedFoodSelect.addEventListener("change", () => {
+        const selectedOption = savedFoodSelect.selectedOptions[0];
+        if (!unitInput.value) {
+            unitInput.value = selectedOption?.dataset.referenceUnit || "";
+        }
+    });
+</script>
 </body>
 </html>

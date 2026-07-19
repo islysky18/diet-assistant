@@ -5,6 +5,12 @@ import java.time.LocalDateTime;
 
 public record FoodEntryResponse(
         Long id,
+        Long savedFoodId,
+        String savedFoodName,
+        String savedFoodBrand,
+        BigDecimal savedFoodReferenceAmount,
+        String savedFoodReferenceUnit,
+        BigDecimal savedFoodReferenceWeightGrams,
         String foodName,
         BigDecimal amount,
         String unit,
@@ -13,6 +19,7 @@ public record FoodEntryResponse(
         BigDecimal carbohydrateGrams,
         BigDecimal fatGrams,
         BigDecimal fiberGrams,
+        BigDecimal calculationMultiplier,
         MealType mealType,
         LocalDateTime eatenAt,
         String notes,
