@@ -1,142 +1,149 @@
 <!doctype html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Food - Diet Assistant</title>
-</head>
+<head th:replace="~{fragments/layout :: head('Record food')}"></head>
 <body>
-<main>
-    <nav>
-        <a th:href="@{/}">Today</a>
-        <a th:href="@{/profile}">Profile</a>
-        <a th:href="@{/health}">Health</a>
-        <a th:href="@{/nutrition-goals}">Nutrition Goals</a>
-        <a th:href="@{/food}">Food</a>
-        <a th:href="@{/foods}">Foods</a>
-    </nav>
+<header th:replace="~{fragments/layout :: header('food')}"></header>
 
-    <h1>Food</h1>
-
-    <p th:if="${successMessage}" th:text="${successMessage}"></p>
-
-    <form th:action="@{/food}" th:object="${foodEntryRequest}" method="post">
-        <p th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
-
+<main class="page-shell">
+    <div class="page-heading">
         <div>
-            <label for="savedFoodId">Saved food</label>
-            <select id="savedFoodId" th:field="*{savedFoodId}" required>
-                <option value="">Select a saved food</option>
-                <option th:each="savedFood : ${savedFoods}"
-                        th:value="${savedFood.id}"
-                        th:text="${savedFood.displayName}"
-                        th:data-reference-unit="${savedFood.referenceUnit}">
-                </option>
-            </select>
-            <p th:if="${#fields.hasErrors('savedFoodId')}" th:errors="*{savedFoodId}"></p>
-            <p th:if="${#lists.isEmpty(savedFoods)}">
-                No active saved foods yet. Add one from <a th:href="@{/foods}">Foods</a>.
-            </p>
+            <p class="page-heading__eyebrow">Meal log</p>
+            <h1>Record food</h1>
+            <p class="page-heading__description">Add what you ate and let the app calculate nutrition from your saved food data.</p>
         </div>
+    </div>
 
-        <div>
-            <label for="amount">Consumed amount</label>
-            <input id="amount" type="number" th:field="*{amount}" min="0.01" step="0.01" required>
-            <p th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></p>
+    <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
+
+    <div class="content-grid">
+        <section class="card">
+            <div class="section-heading">
+                <h2>New food entry</h2>
+            </div>
+            <form class="form-grid" th:action="@{/food}" th:object="${foodEntryRequest}" method="post">
+                <p class="form-error" th:if="${#fields.hasGlobalErrors()}"
+                   th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
+
+                <div class="form-field form-field--full">
+                    <label for="savedFoodId">Saved food</label>
+                    <select id="savedFoodId" th:field="*{savedFoodId}" required>
+                        <option value="">Select a saved food</option>
+                        <option th:each="savedFood : ${savedFoods}"
+                                th:value="${savedFood.id}"
+                                th:text="${savedFood.displayName}"
+                                th:data-reference-unit="${savedFood.referenceUnit}">
+                        </option>
+                    </select>
+                    <p class="field-error" th:if="${#fields.hasErrors('savedFoodId')}" th:errors="*{savedFoodId}"></p>
+                    <p class="field-hint" th:if="${#lists.isEmpty(savedFoods)}">
+                        No active foods yet. <a th:href="@{/foods}">Add one to your food library</a> first.
+                    </p>
+                </div>
+
+                <div class="form-field">
+                    <label for="amount">Consumed amount</label>
+                    <input id="amount" type="number" th:field="*{amount}" min="0.01" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></p>
+                </div>
+
+                <div class="form-field">
+                    <label for="unit">Consumed unit</label>
+                    <input id="unit" type="text" th:field="*{unit}" maxlength="50" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('unit')}" th:errors="*{unit}"></p>
+                </div>
+
+                <div class="form-field">
+                    <label for="mealType">Meal type</label>
+                    <select id="mealType" th:field="*{mealType}" required>
+                        <option value="">Select a meal type</option>
+                        <option th:each="type : ${mealTypes}"
+                                th:value="${type.name()}"
+                                th:text="${type.displayName}">
+                        </option>
+                    </select>
+                    <p class="field-error" th:if="${#fields.hasErrors('mealType')}" th:errors="*{mealType}"></p>
+                </div>
+
+                <div class="form-field">
+                    <label for="eatenAt">Eaten at</label>
+                    <input id="eatenAt" type="datetime-local" th:field="*{eatenAt}" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('eatenAt')}" th:errors="*{eatenAt}"></p>
+                </div>
+
+                <div class="form-field form-field--full">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" th:field="*{notes}" rows="4" placeholder="Optional context about this meal"></textarea>
+                    <p class="field-error" th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit">Save food entry</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="card card--soft">
+            <div class="section-heading">
+                <h2>Today’s totals</h2>
+            </div>
+            <dl class="stat-grid">
+                <div class="stat"><dt>Calories</dt><dd th:text="${dailyTotals.calories}"></dd></div>
+                <div class="stat"><dt>Protein</dt><dd th:text="${dailyTotals.proteinGrams + ' g'}"></dd></div>
+                <div class="stat"><dt>Carbs</dt><dd th:text="${dailyTotals.carbohydrateGrams + ' g'}"></dd></div>
+                <div class="stat"><dt>Fat</dt><dd th:text="${dailyTotals.fatGrams + ' g'}"></dd></div>
+                <div class="stat"><dt>Fiber</dt><dd th:text="${dailyTotals.fiberGrams + ' g'}"></dd></div>
+            </dl>
+        </section>
+    </div>
+
+    <section class="card section-spaced">
+        <div class="section-heading">
+            <h2>Today’s entries</h2>
+            <p>Your nutrition snapshot at the time each item was recorded</p>
         </div>
-
-        <div>
-            <label for="unit">Consumed unit</label>
-            <input id="unit" type="text" th:field="*{unit}" maxlength="50" required>
-            <p th:if="${#fields.hasErrors('unit')}" th:errors="*{unit}"></p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr>
+                    <th>Eaten at</th>
+                    <th>Meal</th>
+                    <th>Brand</th>
+                    <th>Food</th>
+                    <th>Amount</th>
+                    <th>Calories</th>
+                    <th>Protein</th>
+                    <th>Carbs</th>
+                    <th>Fat</th>
+                    <th>Fiber</th>
+                    <th>Notes</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr class="empty-row" th:if="${#lists.isEmpty(foodEntries)}">
+                    <td colspan="12">No food entries recorded today.</td>
+                </tr>
+                <tr th:each="entry : ${foodEntries}">
+                    <td th:text="${#temporals.format(entry.eatenAt, 'yyyy-MM-dd HH:mm')}"></td>
+                    <td th:text="${entry.mealType.displayName}"></td>
+                    <td th:text="${entry.savedFoodBrand} ?: ''"></td>
+                    <td th:text="${entry.foodName}"></td>
+                    <td th:text="${entry.amount + ' ' + entry.unit}"></td>
+                    <td th:text="${entry.calories}"></td>
+                    <td th:text="${entry.proteinGrams}"></td>
+                    <td th:text="${entry.carbohydrateGrams}"></td>
+                    <td th:text="${entry.fatGrams}"></td>
+                    <td th:text="${entry.fiberGrams}"></td>
+                    <td th:text="${entry.notes} ?: ''"></td>
+                    <td>
+                        <form th:action="@{/food/{id}/delete(id=${entry.id})}" method="post">
+                            <button class="button--danger button--small" type="submit">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
         </div>
-
-        <div>
-            <label for="mealType">Meal type</label>
-            <select id="mealType" th:field="*{mealType}" required>
-                <option value="">Select a meal type</option>
-                <option th:each="type : ${mealTypes}"
-                        th:value="${type.name()}"
-                        th:text="${type.displayName}">
-                </option>
-            </select>
-            <p th:if="${#fields.hasErrors('mealType')}" th:errors="*{mealType}"></p>
-        </div>
-
-        <div>
-            <label for="eatenAt">Eaten at</label>
-            <input id="eatenAt" type="datetime-local" th:field="*{eatenAt}" required>
-            <p th:if="${#fields.hasErrors('eatenAt')}" th:errors="*{eatenAt}"></p>
-        </div>
-
-        <div>
-            <label for="notes">Notes</label>
-            <textarea id="notes" th:field="*{notes}" rows="4"></textarea>
-            <p th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
-        </div>
-
-        <button type="submit">Save food entry</button>
-    </form>
-
-    <section>
-        <h2>Daily totals</h2>
-        <dl>
-            <dt>Calories</dt>
-            <dd th:text="${dailyTotals.calories}"></dd>
-            <dt>Protein (g)</dt>
-            <dd th:text="${dailyTotals.proteinGrams}"></dd>
-            <dt>Carbohydrates (g)</dt>
-            <dd th:text="${dailyTotals.carbohydrateGrams}"></dd>
-            <dt>Fat (g)</dt>
-            <dd th:text="${dailyTotals.fatGrams}"></dd>
-            <dt>Fiber (g)</dt>
-            <dd th:text="${dailyTotals.fiberGrams}"></dd>
-        </dl>
-    </section>
-
-    <section>
-        <h2>Today's entries</h2>
-        <table>
-            <thead>
-            <tr>
-                <th>Eaten at</th>
-                <th>Meal</th>
-                <th>Brand</th>
-                <th>Food</th>
-                <th>Amount</th>
-                <th>Calories</th>
-                <th>Protein</th>
-                <th>Carbs</th>
-                <th>Fat</th>
-                <th>Fiber</th>
-                <th>Notes</th>
-                <th>Action</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:if="${#lists.isEmpty(foodEntries)}">
-                <td colspan="12">No food entries recorded today.</td>
-            </tr>
-            <tr th:each="entry : ${foodEntries}">
-                <td th:text="${#temporals.format(entry.eatenAt, 'yyyy-MM-dd HH:mm')}"></td>
-                <td th:text="${entry.mealType.displayName}"></td>
-                <td th:text="${entry.savedFoodBrand} ?: ''"></td>
-                <td th:text="${entry.foodName}"></td>
-                <td th:text="${entry.amount + ' ' + entry.unit}"></td>
-                <td th:text="${entry.calories}"></td>
-                <td th:text="${entry.proteinGrams}"></td>
-                <td th:text="${entry.carbohydrateGrams}"></td>
-                <td th:text="${entry.fatGrams}"></td>
-                <td th:text="${entry.fiberGrams}"></td>
-                <td th:text="${entry.notes} ?: ''"></td>
-                <td>
-                    <form th:action="@{/food/{id}/delete(id=${entry.id})}" method="post">
-                        <button type="submit">Delete</button>
-                    </form>
-                </td>
-            </tr>
-            </tbody>
-        </table>
     </section>
 </main>
 <script>
