@@ -11,12 +11,112 @@
         <a th:href="@{/}">Today</a>
         <a th:href="@{/profile}">Profile</a>
         <a th:href="@{/health}">Health</a>
+        <a th:href="@{/nutrition-goals}">Nutrition Goals</a>
         <a th:href="@{/food}">Food</a>
         <a th:href="@{/foods}">Foods</a>
     </nav>
 
-    <h1>Today</h1>
-    <p>Diet Assistant is ready.</p>
+    <h1>Daily Progress</h1>
+    <h2 th:text="${progress.selectedDate}"></h2>
+
+    <nav aria-label="Date navigation">
+        <a th:href="@{/(date=${progress.previousDate})}">Previous day</a>
+        <a th:href="@{/}">Today</a>
+        <a th:href="@{/(date=${progress.nextDate})}">Next day</a>
+    </nav>
+
+    <p th:unless="${progress.hasNutritionGoal}">
+        No nutrition goals are set. <a th:href="@{/nutrition-goals}">Set nutrition goals</a>.
+    </p>
+
+    <section>
+        <h2>Nutrition progress</h2>
+        <div>
+            <h3>Calories</h3>
+            <p>Consumed: <span th:text="${progress.calories.consumed}"></span></p>
+            <div th:if="${progress.hasNutritionGoal}">
+                <p>Goal: <span th:text="${progress.calories.goal}"></span></p>
+                <p>Remaining: <span th:text="${progress.calories.remaining}"></span></p>
+                <p>Over: <span th:text="${progress.calories.over}"></span></p>
+                <p th:if="${progress.calories.percentage != null}">
+                    Progress: <span th:text="${progress.calories.percentage + '%'}"></span>
+                </p>
+                <p th:unless="${progress.calories.percentage != null}">Progress percentage is unavailable for a zero goal.</p>
+            </div>
+        </div>
+        <div>
+            <h3>Protein</h3>
+            <p>Consumed: <span th:text="${progress.protein.consumed + ' g'}"></span></p>
+            <div th:if="${progress.hasNutritionGoal}">
+                <p>Goal: <span th:text="${progress.protein.goal + ' g'}"></span></p>
+                <p>Remaining: <span th:text="${progress.protein.remaining + ' g'}"></span></p>
+                <p>Over: <span th:text="${progress.protein.over + ' g'}"></span></p>
+                <p th:if="${progress.protein.percentage != null}">
+                    Progress: <span th:text="${progress.protein.percentage + '%'}"></span>
+                </p>
+                <p th:unless="${progress.protein.percentage != null}">Progress percentage is unavailable for a zero goal.</p>
+            </div>
+        </div>
+        <div>
+            <h3>Carbohydrates</h3>
+            <p>Consumed: <span th:text="${progress.carbohydrate.consumed + ' g'}"></span></p>
+            <div th:if="${progress.hasNutritionGoal}">
+                <p>Goal: <span th:text="${progress.carbohydrate.goal + ' g'}"></span></p>
+                <p>Remaining: <span th:text="${progress.carbohydrate.remaining + ' g'}"></span></p>
+                <p>Over: <span th:text="${progress.carbohydrate.over + ' g'}"></span></p>
+                <p th:if="${progress.carbohydrate.percentage != null}">
+                    Progress: <span th:text="${progress.carbohydrate.percentage + '%'}"></span>
+                </p>
+                <p th:unless="${progress.carbohydrate.percentage != null}">Progress percentage is unavailable for a zero goal.</p>
+            </div>
+        </div>
+        <div>
+            <h3>Fat</h3>
+            <p>Consumed: <span th:text="${progress.fat.consumed + ' g'}"></span></p>
+            <div th:if="${progress.hasNutritionGoal}">
+                <p>Goal: <span th:text="${progress.fat.goal + ' g'}"></span></p>
+                <p>Remaining: <span th:text="${progress.fat.remaining + ' g'}"></span></p>
+                <p>Over: <span th:text="${progress.fat.over + ' g'}"></span></p>
+                <p th:if="${progress.fat.percentage != null}">
+                    Progress: <span th:text="${progress.fat.percentage + '%'}"></span>
+                </p>
+                <p th:unless="${progress.fat.percentage != null}">Progress percentage is unavailable for a zero goal.</p>
+            </div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Food entries</h2>
+        <table>
+            <thead>
+            <tr>
+                <th>Eaten at</th>
+                <th>Meal</th>
+                <th>Food</th>
+                <th>Amount</th>
+                <th>Calories</th>
+                <th>Protein</th>
+                <th>Carbs</th>
+                <th>Fat</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(progress.foodEntries)}">
+                <td colspan="8">No food entries recorded for this date.</td>
+            </tr>
+            <tr th:each="entry : ${progress.foodEntries}">
+                <td th:text="${#temporals.format(entry.eatenAt, 'yyyy-MM-dd HH:mm')}"></td>
+                <td th:text="${entry.mealType.displayName}"></td>
+                <td th:text="${entry.foodName}"></td>
+                <td th:text="${entry.amount + ' ' + entry.unit}"></td>
+                <td th:text="${entry.calories}"></td>
+                <td th:text="${entry.proteinGrams}"></td>
+                <td th:text="${entry.carbohydrateGrams}"></td>
+                <td th:text="${entry.fatGrams}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </section>
 </main>
 </body>
 </html>

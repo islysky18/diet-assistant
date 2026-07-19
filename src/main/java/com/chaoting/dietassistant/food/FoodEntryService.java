@@ -72,11 +72,16 @@ public class FoodEntryService {
 
     @Transactional(readOnly = true)
     public List<FoodEntryResponse> listTodayEntries() {
+        return listEntriesForDate(LocalDate.now(clock));
+    }
+
+    @Transactional(readOnly = true)
+    public List<FoodEntryResponse> listEntriesForDate(LocalDate date) {
         return currentProfileProvider.getProfile()
                 .map(profile -> foodEntryRepository.findByProfileIdAndEatenAtGreaterThanEqualAndEatenAtLessThanOrderByEatenAtDescIdDesc(
                                 profile.id(),
-                                todayStart(),
-                                tomorrowStart()
+                                date.atStartOfDay(),
+                                date.plusDays(1).atStartOfDay()
                         ).stream()
                         .map(this::toResponse)
                         .toList())
@@ -85,7 +90,12 @@ public class FoodEntryService {
 
     @Transactional(readOnly = true)
     public DailyNutritionTotalsResponse todayTotals() {
-        return calculateTotals(listTodayEntries());
+        return totalsForDate(LocalDate.now(clock));
+    }
+
+    @Transactional(readOnly = true)
+    public DailyNutritionTotalsResponse totalsForDate(LocalDate date) {
+        return calculateTotals(listEntriesForDate(date));
     }
 
     public DailyNutritionTotalsResponse calculateTotals(List<FoodEntryResponse> entries) {
@@ -183,14 +193,6 @@ public class FoodEntryService {
     private boolean isGramUnit(String unit) {
         String normalized = unit == null ? "" : unit.trim().toLowerCase(Locale.ROOT);
         return normalized.equals("g") || normalized.equals("gram") || normalized.equals("grams");
-    }
-
-    private LocalDateTime todayStart() {
-        return LocalDate.now(clock).atStartOfDay();
-    }
-
-    private LocalDateTime tomorrowStart() {
-        return LocalDate.now(clock).plusDays(1).atStartOfDay();
     }
 
     private ProfileResponse requireProfile() {
