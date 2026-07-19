@@ -1,93 +1,81 @@
 <!doctype html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Edit Food - Diet Assistant</title>
-</head>
+<head th:replace="~{fragments/layout :: head('Edit food')}"></head>
 <body>
-<main>
-    <nav>
-        <a th:href="@{/}">Today</a>
-        <a th:href="@{/profile}">Profile</a>
-        <a th:href="@{/health}">Health</a>
-        <a th:href="@{/nutrition-goals}">Nutrition Goals</a>
-        <a th:href="@{/food}">Food</a>
-        <a th:href="@{/foods}">Foods</a>
-    </nav>
+<header th:replace="~{fragments/layout :: header('foods')}"></header>
 
-    <h1>Edit Food</h1>
-
-    <form th:action="@{/foods/{id}(id=${savedFood.id})}" th:object="${savedFoodRequest}" method="post">
+<main class="page-shell page-shell--narrow">
+    <div class="page-heading">
         <div>
-            <label for="name">Food name</label>
-            <input id="name" type="text" th:field="*{name}" maxlength="255" required>
-            <p th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></p>
+            <p class="page-heading__eyebrow">Food library</p>
+            <h1>Edit Food</h1>
+            <p class="page-heading__description" th:text="${'Update the reference nutrition for ' + savedFood.displayName + '.'}"></p>
         </div>
+    </div>
 
-        <div>
-            <label for="brand">Brand</label>
-            <input id="brand" type="text" th:field="*{brand}" maxlength="255">
-            <p th:if="${#fields.hasErrors('brand')}" th:errors="*{brand}"></p>
-        </div>
-
-        <div>
-            <label for="referenceAmount">Reference amount</label>
-            <input id="referenceAmount" type="number" th:field="*{referenceAmount}" min="0.01" step="0.01" required>
-            <p th:if="${#fields.hasErrors('referenceAmount')}" th:errors="*{referenceAmount}"></p>
-        </div>
-
-        <div>
-            <label for="referenceUnit">Reference unit</label>
-            <input id="referenceUnit" type="text" th:field="*{referenceUnit}" maxlength="50" required>
-            <p th:if="${#fields.hasErrors('referenceUnit')}" th:errors="*{referenceUnit}"></p>
-        </div>
-
-        <div>
-            <label for="referenceWeightGrams">Reference weight (g)</label>
-            <input id="referenceWeightGrams" type="number" th:field="*{referenceWeightGrams}" min="0.01" step="0.01">
-            <p th:if="${#fields.hasErrors('referenceWeightGrams')}" th:errors="*{referenceWeightGrams}"></p>
-        </div>
-
-        <div>
-            <label for="calories">Calories</label>
-            <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
-        </div>
-
-        <div>
-            <label for="proteinGrams">Protein (g)</label>
-            <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
-        </div>
-
-        <div>
-            <label for="carbohydrateGrams">Carbohydrates (g)</label>
-            <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
-        </div>
-
-        <div>
-            <label for="fatGrams">Fat (g)</label>
-            <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
-        </div>
-
-        <div>
-            <label for="fiberGrams">Fiber (g)</label>
-            <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
-        </div>
-
-        <div>
-            <label for="notes">Notes</label>
-            <textarea id="notes" th:field="*{notes}" rows="4"></textarea>
-            <p th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
-        </div>
-
-        <button type="submit">Update food</button>
-        <a th:href="@{/foods}">Cancel</a>
-    </form>
+    <section class="card">
+        <form class="form-grid" th:action="@{/foods/{id}(id=${savedFood.id})}" th:object="${savedFoodRequest}" method="post">
+            <div class="form-field">
+                <label for="name">Food name</label>
+                <input id="name" type="text" th:field="*{name}" maxlength="255" required>
+                <p class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></p>
+            </div>
+            <div class="form-field">
+                <label for="brand">Brand</label>
+                <input id="brand" type="text" th:field="*{brand}" maxlength="255">
+                <p class="field-error" th:if="${#fields.hasErrors('brand')}" th:errors="*{brand}"></p>
+            </div>
+            <div class="form-field">
+                <label for="referenceAmount">Reference amount</label>
+                <input id="referenceAmount" type="number" th:field="*{referenceAmount}" min="0.01" step="0.01" required>
+                <p class="field-error" th:if="${#fields.hasErrors('referenceAmount')}" th:errors="*{referenceAmount}"></p>
+            </div>
+            <div class="form-field">
+                <label for="referenceUnit">Reference unit</label>
+                <input id="referenceUnit" type="text" th:field="*{referenceUnit}" maxlength="50" required>
+                <p class="field-error" th:if="${#fields.hasErrors('referenceUnit')}" th:errors="*{referenceUnit}"></p>
+            </div>
+            <div class="form-field">
+                <label for="referenceWeightGrams">Reference weight (g)</label>
+                <input id="referenceWeightGrams" type="number" th:field="*{referenceWeightGrams}" min="0.01" step="0.01">
+                <p class="field-error" th:if="${#fields.hasErrors('referenceWeightGrams')}" th:errors="*{referenceWeightGrams}"></p>
+            </div>
+            <div class="form-field">
+                <label for="calories">Calories</label>
+                <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
+                <p class="field-error" th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
+            </div>
+            <div class="form-field">
+                <label for="proteinGrams">Protein (g)</label>
+                <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
+                <p class="field-error" th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
+            </div>
+            <div class="form-field">
+                <label for="carbohydrateGrams">Carbohydrates (g)</label>
+                <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
+                <p class="field-error" th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
+            </div>
+            <div class="form-field">
+                <label for="fatGrams">Fat (g)</label>
+                <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
+                <p class="field-error" th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
+            </div>
+            <div class="form-field">
+                <label for="fiberGrams">Fiber (g)</label>
+                <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
+                <p class="field-error" th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
+            </div>
+            <div class="form-field form-field--full">
+                <label for="notes">Notes</label>
+                <textarea id="notes" th:field="*{notes}" rows="4"></textarea>
+                <p class="field-error" th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+            </div>
+            <div class="form-actions">
+                <button type="submit">Update food</button>
+                <a class="button button--secondary" th:href="@{/foods}">Cancel</a>
+            </div>
+        </form>
+    </section>
 </main>
 </body>
 </html>

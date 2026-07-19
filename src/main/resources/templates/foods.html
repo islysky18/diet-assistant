@@ -1,139 +1,140 @@
 <!doctype html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Foods - Diet Assistant</title>
-</head>
+<head th:replace="~{fragments/layout :: head('Food library')}"></head>
 <body>
-<main>
-    <nav>
-        <a th:href="@{/}">Today</a>
-        <a th:href="@{/profile}">Profile</a>
-        <a th:href="@{/health}">Health</a>
-        <a th:href="@{/nutrition-goals}">Nutrition Goals</a>
-        <a th:href="@{/food}">Food</a>
-        <a th:href="@{/foods}">Foods</a>
-    </nav>
+<header th:replace="~{fragments/layout :: header('foods')}"></header>
 
-    <h1>Foods</h1>
-
-    <p th:if="${successMessage}" th:text="${successMessage}"></p>
-
-    <form th:action="@{/foods}" th:object="${savedFoodRequest}" method="post">
+<main class="page-shell">
+    <div class="page-heading">
         <div>
-            <label for="name">Food name</label>
-            <input id="name" type="text" th:field="*{name}" maxlength="255" required>
-            <p th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></p>
+            <p class="page-heading__eyebrow">Nutrition reference</p>
+            <h1>Foods</h1>
+            <p class="page-heading__description">Keep trusted serving and nutrition data here so every meal entry is calculated consistently.</p>
         </div>
+    </div>
 
-        <div>
-            <label for="brand">Brand</label>
-            <input id="brand" type="text" th:field="*{brand}" maxlength="255">
-            <p th:if="${#fields.hasErrors('brand')}" th:errors="*{brand}"></p>
-        </div>
+    <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
 
-        <div>
-            <label for="referenceAmount">Reference amount</label>
-            <input id="referenceAmount" type="number" th:field="*{referenceAmount}" min="0.01" step="0.01" required>
-            <p th:if="${#fields.hasErrors('referenceAmount')}" th:errors="*{referenceAmount}"></p>
-        </div>
+    <div class="stack">
+        <section class="card">
+            <div class="section-heading">
+                <h2>Add a food</h2>
+                <p>Nutrition values should match the reference serving</p>
+            </div>
+            <form class="form-grid" th:action="@{/foods}" th:object="${savedFoodRequest}" method="post">
+                <div class="form-field">
+                    <label for="name">Food name</label>
+                    <input id="name" type="text" th:field="*{name}" maxlength="255" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="brand">Brand</label>
+                    <input id="brand" type="text" th:field="*{brand}" maxlength="255">
+                    <p class="field-error" th:if="${#fields.hasErrors('brand')}" th:errors="*{brand}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="referenceAmount">Reference amount</label>
+                    <input id="referenceAmount" type="number" th:field="*{referenceAmount}" min="0.01" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('referenceAmount')}" th:errors="*{referenceAmount}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="referenceUnit">Reference unit</label>
+                    <input id="referenceUnit" type="text" th:field="*{referenceUnit}" maxlength="50" placeholder="serving, cup, slice…" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('referenceUnit')}" th:errors="*{referenceUnit}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="referenceWeightGrams">Reference weight (g)</label>
+                    <input id="referenceWeightGrams" type="number" th:field="*{referenceWeightGrams}" min="0.01" step="0.01">
+                    <p class="field-error" th:if="${#fields.hasErrors('referenceWeightGrams')}" th:errors="*{referenceWeightGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="calories">Calories</label>
+                    <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="proteinGrams">Protein (g)</label>
+                    <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="carbohydrateGrams">Carbohydrates (g)</label>
+                    <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="fatGrams">Fat (g)</label>
+                    <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="fiberGrams">Fiber (g)</label>
+                    <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
+                </div>
+                <div class="form-field form-field--full">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" th:field="*{notes}" rows="4" placeholder="Optional preparation or serving details"></textarea>
+                    <p class="field-error" th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Save food</button>
+                </div>
+            </form>
+        </section>
 
-        <div>
-            <label for="referenceUnit">Reference unit</label>
-            <input id="referenceUnit" type="text" th:field="*{referenceUnit}" maxlength="50" required>
-            <p th:if="${#fields.hasErrors('referenceUnit')}" th:errors="*{referenceUnit}"></p>
-        </div>
-
-        <div>
-            <label for="referenceWeightGrams">Reference weight (g)</label>
-            <input id="referenceWeightGrams" type="number" th:field="*{referenceWeightGrams}" min="0.01" step="0.01">
-            <p th:if="${#fields.hasErrors('referenceWeightGrams')}" th:errors="*{referenceWeightGrams}"></p>
-        </div>
-
-        <div>
-            <label for="calories">Calories</label>
-            <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
-        </div>
-
-        <div>
-            <label for="proteinGrams">Protein (g)</label>
-            <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
-        </div>
-
-        <div>
-            <label for="carbohydrateGrams">Carbohydrates (g)</label>
-            <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
-        </div>
-
-        <div>
-            <label for="fatGrams">Fat (g)</label>
-            <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
-        </div>
-
-        <div>
-            <label for="fiberGrams">Fiber (g)</label>
-            <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
-            <p th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
-        </div>
-
-        <div>
-            <label for="notes">Notes</label>
-            <textarea id="notes" th:field="*{notes}" rows="4"></textarea>
-            <p th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
-        </div>
-
-        <button type="submit">Save food</button>
-    </form>
-
-    <section>
-        <h2>Saved foods</h2>
-        <table>
-            <thead>
-            <tr>
-                <th>Brand</th>
-                <th>Name</th>
-                <th>Reference serving</th>
-                <th>Reference weight</th>
-                <th>Calories</th>
-                <th>Protein</th>
-                <th>Carbs</th>
-                <th>Fat</th>
-                <th>Fiber</th>
-                <th>Notes</th>
-                <th>Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            <tr th:if="${#lists.isEmpty(savedFoods)}">
-                <td colspan="11">No saved foods yet.</td>
-            </tr>
-            <tr th:each="savedFood : ${savedFoods}">
-                <td th:text="${savedFood.brand} ?: ''"></td>
-                <td th:text="${savedFood.name}"></td>
-                <td th:text="${savedFood.referenceServing}"></td>
-                <td th:text="${savedFood.referenceWeightGrams != null ? savedFood.referenceWeightGrams + ' g' : ''}"></td>
-                <td th:text="${savedFood.calories}"></td>
-                <td th:text="${savedFood.proteinGrams}"></td>
-                <td th:text="${savedFood.carbohydrateGrams}"></td>
-                <td th:text="${savedFood.fatGrams}"></td>
-                <td th:text="${savedFood.fiberGrams}"></td>
-                <td th:text="${savedFood.notes} ?: ''"></td>
-                <td>
-                    <a th:href="@{/food(savedFoodId=${savedFood.id})}">Record intake</a>
-                    <a th:href="@{/foods/{id}/edit(id=${savedFood.id})}">Edit</a>
-                    <form th:action="@{/foods/{id}/deactivate(id=${savedFood.id})}" method="post">
-                        <button type="submit">Deactivate</button>
-                    </form>
-                </td>
-            </tr>
-            </tbody>
-        </table>
-    </section>
+        <section class="card">
+            <div class="section-heading">
+                <h2>Saved foods</h2>
+                <p th:text="${#lists.size(savedFoods) + ' active foods'}"></p>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Brand</th>
+                        <th>Name</th>
+                        <th>Serving</th>
+                        <th>Weight</th>
+                        <th>Calories</th>
+                        <th>Protein</th>
+                        <th>Carbs</th>
+                        <th>Fat</th>
+                        <th>Fiber</th>
+                        <th>Notes</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr class="empty-row" th:if="${#lists.isEmpty(savedFoods)}">
+                        <td colspan="11">No saved foods yet. Add your first food above.</td>
+                    </tr>
+                    <tr th:each="savedFood : ${savedFoods}">
+                        <td th:text="${savedFood.brand} ?: ''"></td>
+                        <td th:text="${savedFood.name}"></td>
+                        <td th:text="${savedFood.referenceServing}"></td>
+                        <td th:text="${savedFood.referenceWeightGrams != null ? savedFood.referenceWeightGrams + ' g' : ''}"></td>
+                        <td th:text="${savedFood.calories}"></td>
+                        <td th:text="${savedFood.proteinGrams}"></td>
+                        <td th:text="${savedFood.carbohydrateGrams}"></td>
+                        <td th:text="${savedFood.fatGrams}"></td>
+                        <td th:text="${savedFood.fiberGrams}"></td>
+                        <td th:text="${savedFood.notes} ?: ''"></td>
+                        <td>
+                            <div class="table-actions">
+                                <a class="button button--small" th:href="@{/food(savedFoodId=${savedFood.id})}">Record intake</a>
+                                <a class="button button--secondary button--small" th:href="@{/foods/{id}/edit(id=${savedFood.id})}">Edit</a>
+                                <form th:action="@{/foods/{id}/deactivate(id=${savedFood.id})}" method="post">
+                                    <button class="button--danger button--small" type="submit">Deactivate</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
 </main>
 </body>
 </html>

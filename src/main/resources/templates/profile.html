@@ -1,76 +1,65 @@
 <!doctype html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Profile - Diet Assistant</title>
-</head>
+<head th:replace="~{fragments/layout :: head('Profile')}"></head>
 <body>
-<main>
-    <nav>
-        <a th:href="@{/}">Today</a>
-        <a th:href="@{/profile}">Profile</a>
-        <a th:href="@{/health}">Health</a>
-        <a th:href="@{/nutrition-goals}">Nutrition Goals</a>
-        <a th:href="@{/food}">Food</a>
-        <a th:href="@{/foods}">Foods</a>
-    </nav>
+<header th:replace="~{fragments/layout :: header('profile')}"></header>
 
-    <h1>Profile</h1>
-
-    <p th:if="${successMessage}" th:text="${successMessage}"></p>
-
-    <form th:action="@{/profile}" th:object="${profileRequest}" method="post">
+<main class="page-shell page-shell--narrow">
+    <div class="page-heading">
         <div>
-            <label for="birthYear">Birth year</label>
-            <input id="birthYear" type="number" th:field="*{birthYear}" min="1900" max="2100">
-            <p th:if="${#fields.hasErrors('birthYear')}" th:errors="*{birthYear}"></p>
+            <p class="page-heading__eyebrow">Personal context</p>
+            <h1>Profile</h1>
+            <p class="page-heading__description">Set the basic information that helps tailor future meal guidance to your routine.</p>
         </div>
+    </div>
 
-        <div>
-            <label for="heightCm">Height (cm)</label>
-            <input id="heightCm" type="number" th:field="*{heightCm}" min="50" max="300" step="0.01">
-            <p th:if="${#fields.hasErrors('heightCm')}" th:errors="*{heightCm}"></p>
-        </div>
+    <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
 
-        <div>
-            <label for="weightKg">Weight (kg)</label>
-            <input id="weightKg" type="number" th:field="*{weightKg}" min="20" max="500" step="0.01">
-            <p th:if="${#fields.hasErrors('weightKg')}" th:errors="*{weightKg}"></p>
-        </div>
-
-        <div>
-            <label for="primaryGoal">Primary goal</label>
-            <select id="primaryGoal" th:field="*{primaryGoal}">
-                <option value="">Select a goal</option>
-                <option th:each="goal : ${primaryGoals}"
-                        th:value="${goal.name()}"
-                        th:text="${goal.displayName}">
-                </option>
-            </select>
-            <p th:if="${#fields.hasErrors('primaryGoal')}" th:errors="*{primaryGoal}"></p>
-        </div>
-
-        <div>
-            <label for="mealsPerDay">Meals per day</label>
-            <input id="mealsPerDay" type="number" th:field="*{mealsPerDay}" min="1" max="10">
-            <p th:if="${#fields.hasErrors('mealsPerDay')}" th:errors="*{mealsPerDay}"></p>
-        </div>
-
-        <div>
-            <label for="weekdayDinnerTime">Weekday dinner time</label>
-            <input id="weekdayDinnerTime" type="time" th:field="*{weekdayDinnerTime}">
-            <p th:if="${#fields.hasErrors('weekdayDinnerTime')}" th:errors="*{weekdayDinnerTime}"></p>
-        </div>
-
-        <div>
-            <label for="notes">Notes</label>
-            <textarea id="notes" th:field="*{notes}" rows="5"></textarea>
-            <p th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
-        </div>
-
-        <button type="submit">Save profile</button>
-    </form>
+    <section class="card">
+        <form class="form-grid" th:action="@{/profile}" th:object="${profileRequest}" method="post">
+            <div class="form-field">
+                <label for="birthYear">Birth year</label>
+                <input id="birthYear" type="number" th:field="*{birthYear}" min="1900" max="2100">
+                <p class="field-error" th:if="${#fields.hasErrors('birthYear')}" th:errors="*{birthYear}"></p>
+            </div>
+            <div class="form-field">
+                <label for="heightCm">Height (cm)</label>
+                <input id="heightCm" type="number" th:field="*{heightCm}" min="50" max="300" step="0.01">
+                <p class="field-error" th:if="${#fields.hasErrors('heightCm')}" th:errors="*{heightCm}"></p>
+            </div>
+            <div class="form-field">
+                <label for="weightKg">Weight (kg)</label>
+                <input id="weightKg" type="number" th:field="*{weightKg}" min="20" max="500" step="0.01">
+                <p class="field-error" th:if="${#fields.hasErrors('weightKg')}" th:errors="*{weightKg}"></p>
+            </div>
+            <div class="form-field">
+                <label for="primaryGoal">Primary goal</label>
+                <select id="primaryGoal" th:field="*{primaryGoal}">
+                    <option value="">Select a goal</option>
+                    <option th:each="goal : ${primaryGoals}" th:value="${goal.name()}" th:text="${goal.displayName}"></option>
+                </select>
+                <p class="field-error" th:if="${#fields.hasErrors('primaryGoal')}" th:errors="*{primaryGoal}"></p>
+            </div>
+            <div class="form-field">
+                <label for="mealsPerDay">Meals per day</label>
+                <input id="mealsPerDay" type="number" th:field="*{mealsPerDay}" min="1" max="10">
+                <p class="field-error" th:if="${#fields.hasErrors('mealsPerDay')}" th:errors="*{mealsPerDay}"></p>
+            </div>
+            <div class="form-field">
+                <label for="weekdayDinnerTime">Weekday dinner time</label>
+                <input id="weekdayDinnerTime" type="time" th:field="*{weekdayDinnerTime}">
+                <p class="field-error" th:if="${#fields.hasErrors('weekdayDinnerTime')}" th:errors="*{weekdayDinnerTime}"></p>
+            </div>
+            <div class="form-field form-field--full">
+                <label for="notes">Notes</label>
+                <textarea id="notes" th:field="*{notes}" rows="5" placeholder="Diet preferences, schedule details, or other useful context"></textarea>
+                <p class="field-error" th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+            </div>
+            <div class="form-actions">
+                <button type="submit">Save profile</button>
+            </div>
+        </form>
+    </section>
 </main>
 </body>
 </html>

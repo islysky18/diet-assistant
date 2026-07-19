@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(pageTitle)">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#173f35">
+    <title th:text="${pageTitle + ' · Diet Assistant'}">Diet Assistant</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+<header class="app-header" th:fragment="header(activePage)">
+    <div class="app-header__inner">
+        <a class="brand" th:href="@{/}" aria-label="Diet Assistant home">
+            <span class="brand__mark" aria-hidden="true">DA</span>
+            <span>
+                <strong class="brand__name">Diet Assistant</strong>
+                <span class="brand__tagline">Plan simply. Eat intentionally.</span>
+            </span>
+        </a>
+
+        <nav class="app-nav" aria-label="Main navigation">
+            <a class="app-nav__link"
+               th:classappend="${activePage == 'today'} ? ' app-nav__link--active'"
+               th:attr="aria-current=${activePage == 'today' ? 'page' : null}"
+               th:href="@{/}">Today</a>
+            <a class="app-nav__link"
+               th:classappend="${activePage == 'food'} ? ' app-nav__link--active'"
+               th:attr="aria-current=${activePage == 'food' ? 'page' : null}"
+               th:href="@{/food}">Record food</a>
+            <a class="app-nav__link"
+               th:classappend="${activePage == 'foods'} ? ' app-nav__link--active'"
+               th:attr="aria-current=${activePage == 'foods' ? 'page' : null}"
+               th:href="@{/foods}">Food library</a>
+            <a class="app-nav__link"
+               th:classappend="${activePage == 'health'} ? ' app-nav__link--active'"
+               th:attr="aria-current=${activePage == 'health' ? 'page' : null}"
+               th:href="@{/health}">Health</a>
+            <a class="app-nav__link"
+               th:classappend="${activePage == 'nutrition'} ? ' app-nav__link--active'"
+               th:attr="aria-current=${activePage == 'nutrition' ? 'page' : null}"
+               th:href="@{/nutrition-goals}">Goals</a>
+            <a class="app-nav__link"
+               th:classappend="${activePage == 'profile'} ? ' app-nav__link--active'"
+               th:attr="aria-current=${activePage == 'profile' ? 'page' : null}"
+               th:href="@{/profile}">Profile</a>
+        </nav>
+    </div>
+</header>
+</body>
+</html>
