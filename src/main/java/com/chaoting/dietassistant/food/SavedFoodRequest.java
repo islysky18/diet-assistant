@@ -1,5 +1,6 @@
 package com.chaoting.dietassistant.food;
 
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -19,6 +20,7 @@ public class SavedFoodRequest {
 
     @NotNull
     @Positive
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal referenceAmount;
 
     @NotBlank
@@ -26,26 +28,32 @@ public class SavedFoodRequest {
     private String referenceUnit;
 
     @Positive
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal referenceWeightGrams;
 
     @NotNull
     @PositiveOrZero
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal calories;
 
     @NotNull
     @PositiveOrZero
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal proteinGrams;
 
     @NotNull
     @PositiveOrZero
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal carbohydrateGrams;
 
     @NotNull
     @PositiveOrZero
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal fatGrams;
 
     @NotNull
     @PositiveOrZero
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal fiberGrams;
 
     @Size(max = 2000)

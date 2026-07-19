@@ -69,16 +69,29 @@ public class SavedFoodController {
             Model model,
             RedirectAttributes redirectAttributes
     ) {
+        return savedFoodService.getSavedFood(id)
+                .map(savedFood -> updateExistingSavedFood(id, savedFoodRequest, bindingResult, model, redirectAttributes, savedFood))
+                .orElseGet(() -> {
+                    redirectAttributes.addFlashAttribute("successMessage", "Saved food not found.");
+                    return "redirect:/foods";
+                });
+    }
+
+    private String updateExistingSavedFood(
+            Long id,
+            SavedFoodRequest savedFoodRequest,
+            BindingResult bindingResult,
+            Model model,
+            RedirectAttributes redirectAttributes,
+            SavedFoodResponse savedFood
+    ) {
         if (bindingResult.hasErrors()) {
-            model.addAttribute("savedFood", savedFoodService.getSavedFood(id).orElse(null));
+            model.addAttribute("savedFood", savedFood);
             return "food-edit";
         }
 
         savedFoodService.update(id, savedFoodRequest)
-                .ifPresentOrElse(
-                        savedFood -> redirectAttributes.addFlashAttribute("successMessage", "Saved food updated."),
-                        () -> redirectAttributes.addFlashAttribute("successMessage", "Saved food not found.")
-                );
+                .ifPresent(updatedSavedFood -> redirectAttributes.addFlashAttribute("successMessage", "Saved food updated."));
         return "redirect:/foods";
     }
 

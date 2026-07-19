@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -49,6 +50,9 @@ class FoodEntryIntegrationTest {
 
     @Autowired
     private ProfileService profileService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private HttpClient httpClient;
 
@@ -124,6 +128,47 @@ class FoodEntryIntegrationTest {
         assertThat(deactivateResponse.body()).contains("Saved food deactivated.");
         assertThat(savedFoodRepository.findById(savedFood.getId()).orElseThrow().isActive()).isFalse();
         assertThat(get("/foods").body()).doesNotContain("Greek yogurt updated");
+    }
+
+    @Test
+    void invalidEditPostForMissingSavedFoodRedirectsWithoutServerError() throws IOException, InterruptedException {
+        HttpResponse<String> response = post("/foods/999999", invalidSavedFoodForm());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.uri().getPath()).startsWith("/foods");
+        assertThat(response.body()).contains("Saved food not found.");
+        assertThat(response.body()).doesNotContain("Edit Food");
+    }
+
+    @Test
+    void invalidEditPostForForeignSavedFoodRedirectsWithoutServerError() throws IOException, InterruptedException {
+        insertForeignSavedFood(999999L);
+
+        HttpResponse<String> response = post("/foods/999999", invalidSavedFoodForm());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.uri().getPath()).startsWith("/foods");
+        assertThat(response.body()).contains("Saved food not found.");
+        assertThat(response.body()).doesNotContain("Edit Food");
+    }
+
+    @Test
+    void postFoodsRejectsDecimalValuesThatDoNotFitDatabaseScale() throws IOException, InterruptedException {
+        Map<String, String> formValues = savedFoodForm(
+                "Greek yogurt",
+                "Chobani",
+                "0.001",
+                "cup",
+                "227.001",
+                "123456789.00"
+        );
+        formValues.put("proteinGrams", "4.001");
+
+        HttpResponse<String> response = post("/foods", formValues);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("must have up to 8 digits before the decimal and 2 after");
+        assertThat(savedFoodRepository.count()).isZero();
     }
 
     @Test
@@ -236,6 +281,36 @@ class FoodEntryIntegrationTest {
     }
 
     @Test
+    void postFoodRejectsConsumedAmountThatDoesNotFitDatabaseScale() throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Bread", "Bakery", true);
+        Map<String, String> fractionalFormValues = foodEntryForm(
+                savedFood.getId(),
+                "0.001",
+                "slice",
+                LocalDateTime.now().minusMinutes(5)
+        );
+
+        HttpResponse<String> fractionalResponse = post("/food", fractionalFormValues);
+
+        assertThat(fractionalResponse.statusCode()).isEqualTo(200);
+        assertThat(fractionalResponse.body()).contains("must have up to 8 digits before the decimal and 2 after");
+        assertThat(foodEntryRepository.count()).isZero();
+
+        Map<String, String> largeFormValues = foodEntryForm(
+                savedFood.getId(),
+                "123456789.00",
+                "slice",
+                LocalDateTime.now().minusMinutes(5)
+        );
+
+        HttpResponse<String> largeResponse = post("/food", largeFormValues);
+
+        assertThat(largeResponse.statusCode()).isEqualTo(200);
+        assertThat(largeResponse.body()).contains("must have up to 8 digits before the decimal and 2 after");
+        assertThat(foodEntryRepository.count()).isZero();
+    }
+
+    @Test
     void repositoryCurrentDayQueryUsesInclusiveStartAndExclusiveEnd() {
         Long profileId = profileService.getProfile().orElseThrow().id();
         LocalDate today = LocalDate.now();
@@ -280,6 +355,51 @@ class FoodEntryIntegrationTest {
         savedFood.setCreatedAt(LocalDateTime.now());
         savedFood.setUpdatedAt(LocalDateTime.now());
         return savedFoodRepository.save(savedFood);
+    }
+
+    private void insertForeignSavedFood(Long id) {
+        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=0");
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO saved_foods (
+                        id,
+                        profile_id,
+                        name,
+                        brand,
+                        reference_amount,
+                        reference_unit,
+                        reference_weight_grams,
+                        calories,
+                        protein_grams,
+                        carbohydrate_grams,
+                        fat_grams,
+                        fiber_grams,
+                        notes,
+                        active,
+                        created_at,
+                        updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    id,
+                    999999L,
+                    "Foreign bread",
+                    "Other",
+                    new BigDecimal("1.00"),
+                    "slice",
+                    new BigDecimal("40.00"),
+                    new BigDecimal("100.00"),
+                    new BigDecimal("4.00"),
+                    new BigDecimal("20.00"),
+                    new BigDecimal("1.00"),
+                    new BigDecimal("2.00"),
+                    null,
+                    true,
+                    LocalDateTime.now(),
+                    LocalDateTime.now()
+            );
+        } finally {
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
+        }
     }
 
     private FoodEntry saveLegacyEntry(
@@ -329,6 +449,17 @@ class FoodEntryIntegrationTest {
         formValues.put("fiberGrams", "2.00");
         formValues.put("notes", "Saved note");
         return formValues;
+    }
+
+    private Map<String, String> invalidSavedFoodForm() {
+        return savedFoodForm(
+                "",
+                "Brand",
+                "0.001",
+                "slice",
+                "40.00",
+                "100.00"
+        );
     }
 
     private Map<String, String> foodEntryForm(Long savedFoodId, String amount, String unit, LocalDateTime eatenAt) {

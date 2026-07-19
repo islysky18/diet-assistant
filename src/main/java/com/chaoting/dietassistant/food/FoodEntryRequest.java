@@ -1,10 +1,10 @@
 package com.chaoting.dietassistant.food;
 
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import org.springframework.format.annotation.DateTimeFormat;
 
@@ -18,6 +18,7 @@ public class FoodEntryRequest {
 
     @NotNull
     @Positive
+    @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal amount;
 
     @NotBlank
