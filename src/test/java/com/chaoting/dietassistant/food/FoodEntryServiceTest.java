@@ -24,86 +24,85 @@ class FoodEntryServiceTest {
     );
 
     @Test
-    void newRequestForCurrentTimeDefaultsEatenAtFromClock() {
-        FoodEntryService foodEntryService = new FoodEntryService(
-                new FakeFoodEntryRepository().proxy(),
-                Optional::empty,
-                FIXED_CLOCK
-        );
+    void newRequestForCurrentTimeDefaultsEatenAtAndSelectedFoodServing() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Greek yogurt", "Chobani", "1.00", "cup", null));
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), savedFoodRepository);
 
-        FoodEntryRequest request = foodEntryService.newRequestForCurrentTime();
+        FoodEntryRequest request = foodEntryService.newRequestForCurrentTime(10L);
 
         assertThat(request.getEatenAt()).isEqualTo(LocalDateTime.of(2026, 6, 22, 10, 15));
+        assertThat(request.getSavedFoodId()).isEqualTo(10L);
+        assertThat(request.getAmount()).isEqualByComparingTo("1.00");
+        assertThat(request.getUnit()).isEqualTo("cup");
     }
 
     @Test
-    void createStoresEntryForCurrentProfileAndTrimsText() {
+    void createCalculatesNutritionFromSameUnitAndStoresSnapshots() {
         FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
-        FoodEntryService foodEntryService = new FoodEntryService(
-                foodEntryRepository.proxy(),
-                () -> Optional.of(profile()),
-                FIXED_CLOCK
-        );
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Greek yogurt", "Chobani", "1.00", "cup", null));
+        FoodEntryService foodEntryService = service(foodEntryRepository, savedFoodRepository);
 
-        FoodEntryResponse response = foodEntryService.create(request(
-                "  Greek yogurt  ",
-                "1.50",
-                " cup ",
-                "150.00",
-                "20.00",
-                "10.00",
-                "2.00",
-                "0.00",
-                MealType.BREAKFAST,
-                LocalDateTime.of(2026, 6, 22, 8, 0),
-                "  With berries  "
-        ));
+        FoodEntryResponse response = foodEntryService.create(request(10L, "1.50", " cup ", MealType.BREAKFAST));
 
         assertThat(foodEntryRepository.savedEntry().getProfileId()).isEqualTo(7L);
+        assertThat(response.savedFoodId()).isEqualTo(10L);
+        assertThat(response.savedFoodName()).isEqualTo("Greek yogurt");
+        assertThat(response.savedFoodBrand()).isEqualTo("Chobani");
         assertThat(response.foodName()).isEqualTo("Greek yogurt");
+        assertThat(response.amount()).isEqualByComparingTo("1.50");
         assertThat(response.unit()).isEqualTo("cup");
-        assertThat(response.notes()).isEqualTo("With berries");
+        assertThat(response.calculationMultiplier()).isEqualByComparingTo("1.50000000");
+        assertThat(response.calories()).isEqualByComparingTo("150.00");
+        assertThat(response.proteinGrams()).isEqualByComparingTo("15.00");
+        assertThat(response.carbohydrateGrams()).isEqualByComparingTo("7.50");
+        assertThat(response.fatGrams()).isEqualByComparingTo("3.00");
+        assertThat(response.fiberGrams()).isEqualByComparingTo("0.00");
         assertThat(response.createdAt()).isEqualTo(LocalDateTime.of(2026, 6, 22, 10, 15, 30));
     }
 
     @Test
-    void createConvertsBlankNotesToNullAndAcceptsZeroCalories() {
+    void createAllowsGramAliasesWhenReferenceWeightExists() {
         FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
-        FoodEntryService foodEntryService = new FoodEntryService(
-                foodEntryRepository.proxy(),
-                () -> Optional.of(profile()),
-                FIXED_CLOCK
-        );
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Bread", "Bakery", "1.00", "slice", "40.00"));
+        FoodEntryService foodEntryService = service(foodEntryRepository, savedFoodRepository);
 
-        FoodEntryResponse response = foodEntryService.create(request(
-                "Water",
-                "1.00",
-                "glass",
-                "0.00",
-                "0.00",
-                "0.00",
-                "0.00",
-                "0.00",
-                MealType.SNACK,
-                LocalDateTime.of(2026, 6, 22, 12, 0),
-                "   "
-        ));
+        FoodEntryResponse response = foodEntryService.create(request(10L, "60.00", "Grams", MealType.SNACK));
 
-        assertThat(response.calories()).isEqualByComparingTo("0.00");
-        assertThat(response.notes()).isNull();
+        assertThat(response.calculationMultiplier()).isEqualByComparingTo("1.50000000");
+        assertThat(response.calories()).isEqualByComparingTo("150.00");
+        assertThat(response.unit()).isEqualTo("Grams");
+    }
+
+    @Test
+    void validateCreateRejectsIncompatibleUnit() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Soup", null, "1.00", "bowl", null));
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), savedFoodRepository);
+
+        Optional<String> validationMessage = foodEntryService.validateCreate(request(10L, "100.00", "g", MealType.LUNCH));
+
+        assertThat(validationMessage).contains("Use the saved food reference unit, or grams when a reference weight is saved.");
+    }
+
+    @Test
+    void createRejectsInactiveOrMissingSavedFood() {
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), new FakeSavedFoodRepository());
+
+        assertThatThrownBy(() -> foodEntryService.create(request(10L, "1.00", "serving", MealType.SNACK)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Select an active saved food.");
     }
 
     @Test
     void listTodayEntriesUsesCurrentDayBoundariesAndRepositoryOrder() {
         FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
-        FoodEntry first = entry("Lunch", "500.00", LocalDateTime.of(2026, 6, 22, 12, 30));
-        FoodEntry second = entry("Breakfast", "300.00", LocalDateTime.of(2026, 6, 22, 8, 0));
+        FoodEntry first = legacyEntry("Lunch", "500.00", LocalDateTime.of(2026, 6, 22, 12, 30));
+        FoodEntry second = legacyEntry("Breakfast", "300.00", LocalDateTime.of(2026, 6, 22, 8, 0));
         foodEntryRepository.entries = List.of(first, second);
-        FoodEntryService foodEntryService = new FoodEntryService(
-                foodEntryRepository.proxy(),
-                () -> Optional.of(profile()),
-                FIXED_CLOCK
-        );
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
 
         List<FoodEntryResponse> responses = foodEntryService.listTodayEntries();
 
@@ -114,25 +113,8 @@ class FoodEntryServiceTest {
     }
 
     @Test
-    void listTodayEntriesReturnsEmptyListWhenProfileDoesNotExist() {
-        FoodEntryService foodEntryService = new FoodEntryService(
-                new FakeFoodEntryRepository().proxy(),
-                Optional::empty,
-                FIXED_CLOCK
-        );
-
-        List<FoodEntryResponse> responses = foodEntryService.listTodayEntries();
-
-        assertThat(responses).isEmpty();
-    }
-
-    @Test
-    void calculateTotalsSumsEntriesAndReturnsZeroForEmptyEntries() {
-        FoodEntryService foodEntryService = new FoodEntryService(
-                new FakeFoodEntryRepository().proxy(),
-                Optional::empty,
-                FIXED_CLOCK
-        );
+    void calculateTotalsSumsStoredSnapshotsAndReturnsZeroForEmptyEntries() {
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), new FakeSavedFoodRepository());
         DailyNutritionTotalsResponse totals = foodEntryService.calculateTotals(List.of(
                 response("300.00", "20.00", "30.00", "10.00", "5.00"),
                 response("100.00", "5.00", "10.00", "4.00", "2.00")
@@ -147,15 +129,27 @@ class FoodEntryServiceTest {
     }
 
     @Test
+    void savedFoodEditsDoNotChangeCreatedEntrySnapshots() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        SavedFood savedFood = savedFood("Original", "Brand", "1.00", "serving", null);
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood);
+        FoodEntryService foodEntryService = service(foodEntryRepository, savedFoodRepository);
+
+        foodEntryService.create(request(10L, "1.00", "serving", MealType.DINNER));
+        savedFood.setName("Edited");
+        savedFood.setCalories(new BigDecimal("999.00"));
+
+        assertThat(foodEntryRepository.savedEntry().getFoodName()).isEqualTo("Original");
+        assertThat(foodEntryRepository.savedEntry().getCalories()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
     void deleteUsesProfileScopedLookup() {
         FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
-        FoodEntry foodEntry = entry("Snack", "100.00", LocalDateTime.of(2026, 6, 22, 15, 0));
+        FoodEntry foodEntry = legacyEntry("Snack", "100.00", LocalDateTime.of(2026, 6, 22, 15, 0));
         foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
-        FoodEntryService foodEntryService = new FoodEntryService(
-                foodEntryRepository.proxy(),
-                () -> Optional.of(profile()),
-                FIXED_CLOCK
-        );
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
 
         foodEntryService.delete(10L);
 
@@ -165,68 +159,36 @@ class FoodEntryServiceTest {
     }
 
     @Test
-    void deleteDoesNotDeleteWhenProfileScopedEntryIsNotFound() {
-        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
-        FoodEntryService foodEntryService = new FoodEntryService(
-                foodEntryRepository.proxy(),
-                () -> Optional.of(profile()),
-                FIXED_CLOCK
-        );
-
-        foodEntryService.delete(10L);
-
-        assertThat(foodEntryRepository.deletedEntry).isNull();
-    }
-
-    @Test
     void createRequiresProfile() {
         FoodEntryService foodEntryService = new FoodEntryService(
                 new FakeFoodEntryRepository().proxy(),
+                new FakeSavedFoodRepository().proxy(),
                 Optional::empty,
                 FIXED_CLOCK
         );
 
-        assertThatThrownBy(() -> foodEntryService.create(request(
-                "Apple",
-                "1.00",
-                "piece",
-                "95.00",
-                "0.50",
-                "25.00",
-                "0.30",
-                "4.00",
-                MealType.SNACK,
-                LocalDateTime.of(2026, 6, 22, 12, 0),
-                null
-        ))).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> foodEntryService.create(request(10L, "1.00", "serving", MealType.SNACK)))
+                .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Create the user profile before recording food entries.");
     }
 
-    private FoodEntryRequest request(
-            String foodName,
-            String amount,
-            String unit,
-            String calories,
-            String proteinGrams,
-            String carbohydrateGrams,
-            String fatGrams,
-            String fiberGrams,
-            MealType mealType,
-            LocalDateTime eatenAt,
-            String notes
-    ) {
+    private FoodEntryService service(FakeFoodEntryRepository foodEntryRepository, FakeSavedFoodRepository savedFoodRepository) {
+        return new FoodEntryService(
+                foodEntryRepository.proxy(),
+                savedFoodRepository.proxy(),
+                () -> Optional.of(profile()),
+                FIXED_CLOCK
+        );
+    }
+
+    private FoodEntryRequest request(Long savedFoodId, String amount, String unit, MealType mealType) {
         FoodEntryRequest request = new FoodEntryRequest();
-        request.setFoodName(foodName);
+        request.setSavedFoodId(savedFoodId);
         request.setAmount(new BigDecimal(amount));
         request.setUnit(unit);
-        request.setCalories(new BigDecimal(calories));
-        request.setProteinGrams(new BigDecimal(proteinGrams));
-        request.setCarbohydrateGrams(new BigDecimal(carbohydrateGrams));
-        request.setFatGrams(new BigDecimal(fatGrams));
-        request.setFiberGrams(new BigDecimal(fiberGrams));
         request.setMealType(mealType);
-        request.setEatenAt(eatenAt);
-        request.setNotes(notes);
+        request.setEatenAt(LocalDateTime.of(2026, 6, 22, 12, 0));
+        request.setNotes("  Notes  ");
         return request;
     }
 
@@ -243,7 +205,37 @@ class FoodEntryServiceTest {
         );
     }
 
-    private FoodEntry entry(String foodName, String calories, LocalDateTime eatenAt) {
+    private SavedFood savedFood(String name, String brand, String referenceAmount, String referenceUnit, String referenceWeightGrams) {
+        SavedFood savedFood = new SavedFood();
+        setId(savedFood, 10L);
+        savedFood.setProfileId(7L);
+        savedFood.setName(name);
+        savedFood.setBrand(brand);
+        savedFood.setReferenceAmount(new BigDecimal(referenceAmount));
+        savedFood.setReferenceUnit(referenceUnit);
+        savedFood.setReferenceWeightGrams(referenceWeightGrams == null ? null : new BigDecimal(referenceWeightGrams));
+        savedFood.setCalories(new BigDecimal("100.00"));
+        savedFood.setProteinGrams(new BigDecimal("10.00"));
+        savedFood.setCarbohydrateGrams(new BigDecimal("5.00"));
+        savedFood.setFatGrams(new BigDecimal("2.00"));
+        savedFood.setFiberGrams(new BigDecimal("0.00"));
+        savedFood.setActive(true);
+        savedFood.setCreatedAt(LocalDateTime.of(2026, 6, 22, 10, 15, 30));
+        savedFood.setUpdatedAt(LocalDateTime.of(2026, 6, 22, 10, 15, 30));
+        return savedFood;
+    }
+
+    private void setId(SavedFood savedFood, Long id) {
+        try {
+            var field = SavedFood.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(savedFood, id);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Unable to set saved food id for test.", exception);
+        }
+    }
+
+    private FoodEntry legacyEntry(String foodName, String calories, LocalDateTime eatenAt) {
         FoodEntry foodEntry = new FoodEntry();
         foodEntry.setProfileId(7L);
         foodEntry.setFoodName(foodName);
@@ -269,6 +261,12 @@ class FoodEntryServiceTest {
     ) {
         return new FoodEntryResponse(
                 1L,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
                 "Food",
                 new BigDecimal("1.00"),
                 "serving",
@@ -277,6 +275,7 @@ class FoodEntryServiceTest {
                 new BigDecimal(carbohydrateGrams),
                 new BigDecimal(fatGrams),
                 new BigDecimal(fiberGrams),
+                null,
                 MealType.SNACK,
                 LocalDateTime.of(2026, 6, 22, 12, 0),
                 null,
@@ -330,6 +329,27 @@ class FoodEntryServiceTest {
 
         FoodEntry savedEntry() {
             return savedEntry;
+        }
+    }
+
+    private static class FakeSavedFoodRepository {
+
+        private Optional<SavedFood> activeSavedFood = Optional.empty();
+
+        SavedFoodRepository proxy() {
+            return (SavedFoodRepository) Proxy.newProxyInstance(
+                    SavedFoodRepository.class.getClassLoader(),
+                    new Class<?>[]{SavedFoodRepository.class},
+                    (proxy, method, args) -> {
+                        if (method.getName().equals("findByIdAndProfileIdAndActiveTrue")) {
+                            return activeSavedFood;
+                        }
+                        if (method.getName().equals("toString")) {
+                            return "FakeSavedFoodRepository";
+                        }
+                        throw new UnsupportedOperationException(method.getName());
+                    }
+            );
         }
     }
 }

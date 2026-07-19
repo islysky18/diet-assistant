@@ -23,6 +23,24 @@ class FoodEntry {
     @Column(name = "profile_id", nullable = false)
     private Long profileId;
 
+    @Column(name = "saved_food_id")
+    private Long savedFoodId;
+
+    @Column(name = "saved_food_name", length = 255)
+    private String savedFoodName;
+
+    @Column(name = "saved_food_brand", length = 255)
+    private String savedFoodBrand;
+
+    @Column(name = "saved_food_reference_amount", precision = 10, scale = 2)
+    private BigDecimal savedFoodReferenceAmount;
+
+    @Column(name = "saved_food_reference_unit", length = 50)
+    private String savedFoodReferenceUnit;
+
+    @Column(name = "saved_food_reference_weight_grams", precision = 10, scale = 2)
+    private BigDecimal savedFoodReferenceWeightGrams;
+
     @Column(name = "food_name", nullable = false, length = 255)
     private String foodName;
 
@@ -47,6 +65,9 @@ class FoodEntry {
     @Column(name = "fiber_grams", nullable = false, precision = 10, scale = 2)
     private BigDecimal fiberGrams;
 
+    @Column(name = "calculation_multiplier", precision = 18, scale = 8)
+    private BigDecimal calculationMultiplier;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "meal_type", nullable = false, length = 50)
     private MealType mealType;
@@ -70,6 +91,54 @@ class FoodEntry {
 
     void setProfileId(Long profileId) {
         this.profileId = profileId;
+    }
+
+    Long getSavedFoodId() {
+        return savedFoodId;
+    }
+
+    void setSavedFoodId(Long savedFoodId) {
+        this.savedFoodId = savedFoodId;
+    }
+
+    String getSavedFoodName() {
+        return savedFoodName;
+    }
+
+    void setSavedFoodName(String savedFoodName) {
+        this.savedFoodName = savedFoodName;
+    }
+
+    String getSavedFoodBrand() {
+        return savedFoodBrand;
+    }
+
+    void setSavedFoodBrand(String savedFoodBrand) {
+        this.savedFoodBrand = savedFoodBrand;
+    }
+
+    BigDecimal getSavedFoodReferenceAmount() {
+        return savedFoodReferenceAmount;
+    }
+
+    void setSavedFoodReferenceAmount(BigDecimal savedFoodReferenceAmount) {
+        this.savedFoodReferenceAmount = savedFoodReferenceAmount;
+    }
+
+    String getSavedFoodReferenceUnit() {
+        return savedFoodReferenceUnit;
+    }
+
+    void setSavedFoodReferenceUnit(String savedFoodReferenceUnit) {
+        this.savedFoodReferenceUnit = savedFoodReferenceUnit;
+    }
+
+    BigDecimal getSavedFoodReferenceWeightGrams() {
+        return savedFoodReferenceWeightGrams;
+    }
+
+    void setSavedFoodReferenceWeightGrams(BigDecimal savedFoodReferenceWeightGrams) {
+        this.savedFoodReferenceWeightGrams = savedFoodReferenceWeightGrams;
     }
 
     String getFoodName() {
@@ -134,6 +203,14 @@ class FoodEntry {
 
     void setFiberGrams(BigDecimal fiberGrams) {
         this.fiberGrams = fiberGrams;
+    }
+
+    BigDecimal getCalculationMultiplier() {
+        return calculationMultiplier;
+    }
+
+    void setCalculationMultiplier(BigDecimal calculationMultiplier) {
+        this.calculationMultiplier = calculationMultiplier;
     }
 
     MealType getMealType() {
