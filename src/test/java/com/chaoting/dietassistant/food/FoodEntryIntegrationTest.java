@@ -542,7 +542,7 @@ class FoodEntryIntegrationTest {
         ));
 
         assertThat(createResponse.statusCode()).isEqualTo(200);
-        assertThat(createResponse.uri().getPath()).isEqualTo("/food");
+        assertThat(createResponse.uri().getPath()).matches("/food(?:;jsessionid=[^/?;]+)?");
         assertThat(createResponse.uri().getQuery()).isEqualTo("date=" + historyDate);
         assertThat(createResponse.body()).contains("Food entry saved.", "Bread", historyDate.toString());
 
@@ -550,7 +550,7 @@ class FoodEntryIntegrationTest {
         HttpResponse<String> deleteResponse = post("/food/" + entry.getId() + "/delete", Map.of());
 
         assertThat(deleteResponse.statusCode()).isEqualTo(200);
-        assertThat(deleteResponse.uri().getPath()).isEqualTo("/food");
+        assertThat(deleteResponse.uri().getPath()).matches("/food(?:;jsessionid=[^/?;]+)?");
         assertThat(deleteResponse.uri().getQuery()).isEqualTo("date=" + historyDate);
         assertThat(deleteResponse.body()).contains("Food entry deleted.", "No food entries recorded for this date.");
     }
