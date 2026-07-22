@@ -14,13 +14,40 @@
     </div>
 
     <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
+    <p class="alert" th:if="${dateWarning}" th:text="${dateWarning}"></p>
+
+    <section class="card card--soft">
+        <div class="section-heading">
+            <div>
+                <p class="page-heading__eyebrow">Viewing date</p>
+                <h2 th:text="${#temporals.format(selectedDate, 'EEEE, MMMM d, yyyy')}"></h2>
+            </div>
+            <div class="table-actions">
+                <a class="button button--secondary button--small"
+                   th:href="@{/food(date=${previousDate})}">Previous</a>
+                <a class="button button--secondary button--small"
+                   th:if="${!isToday}" th:href="@{/food}">Today</a>
+                <a class="button button--secondary button--small"
+                   th:if="${nextDate <= today}" th:href="@{/food(date=${nextDate})}">Next</a>
+            </div>
+        </div>
+        <form class="form-grid" th:action="@{/food}" method="get">
+            <div class="form-field">
+                <label for="viewDate">Choose date</label>
+                <input id="viewDate" name="date" type="date" th:value="${selectedDate}" th:max="${today}">
+            </div>
+            <div class="form-actions">
+                <button type="submit">View date</button>
+            </div>
+        </form>
+    </section>
 
     <div class="content-grid">
         <section class="card">
             <div class="section-heading">
                 <h2>New food entry</h2>
             </div>
-            <form class="form-grid" th:action="@{/food}" th:object="${foodEntryRequest}" method="post">
+            <form class="form-grid" th:action="@{/food(date=${selectedDate})}" th:object="${foodEntryRequest}" method="post">
                 <p class="form-error" th:if="${#fields.hasGlobalErrors()}"
                    th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
 
@@ -84,7 +111,7 @@
 
         <section class="card card--soft">
             <div class="section-heading">
-                <h2>Today’s totals</h2>
+                <h2 th:text="${isToday ? 'Today’s totals' : 'Totals for selected date'}"></h2>
             </div>
             <dl class="stat-grid">
                 <div class="stat"><dt>Calories</dt><dd th:text="${dailyTotals.calories}"></dd></div>
@@ -98,7 +125,7 @@
 
     <section class="card section-spaced">
         <div class="section-heading">
-            <h2>Today’s entries</h2>
+            <h2 th:text="${isToday ? 'Today’s entries' : 'Entries for selected date'}"></h2>
             <p>Your nutrition snapshot at the time each item was recorded</p>
         </div>
         <div class="table-wrap">
@@ -121,7 +148,7 @@
                 </thead>
                 <tbody>
                 <tr class="empty-row" th:if="${#lists.isEmpty(foodEntries)}">
-                    <td colspan="12">No food entries recorded today.</td>
+                    <td colspan="12" th:text="${isToday ? 'No food entries recorded today.' : 'No food entries recorded for this date.'}"></td>
                 </tr>
                 <tr th:each="entry : ${foodEntries}">
                     <td th:text="${#temporals.format(entry.eatenAt, 'yyyy-MM-dd HH:mm')}"></td>
