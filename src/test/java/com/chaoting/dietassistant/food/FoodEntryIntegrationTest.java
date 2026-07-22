@@ -490,6 +490,72 @@ class FoodEntryIntegrationTest {
     }
 
     @Test
+    void foodHistoryShowsSelectedDateEntriesTotalsAndNavigation() throws IOException, InterruptedException {
+        LocalDate today = LocalDate.now();
+        LocalDate historyDate = today.minusDays(3);
+        saveLegacyEntry("Historical apple", "95.00", "0.50", "25.00", "0.30", "4.00", historyDate.atTime(8, 0));
+        saveLegacyEntry("Today banana", "105.00", "1.00", "27.00", "0.40", "3.00", today.atTime(9, 0));
+
+        HttpResponse<String> response = get("/food?date=" + historyDate);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains(
+                "Historical apple",
+                "95.00",
+                "Totals for selected date",
+                "Entries for selected date",
+                "Previous",
+                "Today",
+                "Next",
+                "value=\"" + historyDate + "\"",
+                "value=\"" + historyDate + "T"
+        );
+        assertThat(response.body()).doesNotContain("Today banana", "105.00");
+    }
+
+    @Test
+    void invalidFoodHistoryDateFallsBackToTodayWithoutServerError() throws IOException, InterruptedException {
+        LocalDate today = LocalDate.now();
+        saveLegacyEntry("Today entry", "100.00", "1.00", "2.00", "3.00", "4.00", today.atTime(8, 0));
+
+        HttpResponse<String> response = get("/food?date=not-a-date");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains(
+                "The requested date was invalid. Showing today instead.",
+                "Today entry",
+                "Today’s totals",
+                "Today’s entries"
+        );
+    }
+
+    @Test
+    void createAndDeleteHistoricalEntryReturnToItsDate() throws IOException, InterruptedException {
+        LocalDate historyDate = LocalDate.now().minusDays(5);
+        SavedFood savedFood = saveSavedFood("Bread", "Bakery", true);
+
+        HttpResponse<String> createResponse = post("/food?date=" + historyDate, foodEntryForm(
+                savedFood.getId(),
+                "1.00",
+                "slice",
+                historyDate.atTime(12, 30)
+        ));
+
+        assertThat(createResponse.statusCode()).isEqualTo(200);
+        assertThat(createResponse.uri().getPath()).matches("/food(?:;jsessionid=[^/?;]+)?");
+        assertThat(createResponse.uri().getQuery()).isEqualTo("date=" + historyDate);
+        assertThat(createResponse.body()).contains("Food entry saved.", "Bread", historyDate.toString());
+
+        FoodEntry entry = foodEntryRepository.findAll().getFirst();
+        HttpResponse<String> deleteResponse = post("/food/" + entry.getId() + "/delete", Map.of());
+
+        assertThat(deleteResponse.statusCode()).isEqualTo(200);
+        assertThat(deleteResponse.uri().getPath()).matches("/food(?:;jsessionid=[^/?;]+)?");
+        assertThat(deleteResponse.uri().getQuery()).isEqualTo("date=" + historyDate);
+        assertThat(deleteResponse.body()).contains("Food entry deleted.", "No food entries recorded for this date.");
+    }
+
+    @Test
     void repositoryCurrentDayQueryUsesInclusiveStartAndExclusiveEnd() {
         Long profileId = profileService.getProfile().orElseThrow().id();
         LocalDate today = LocalDate.now();
