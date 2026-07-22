@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Edit food entry')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('food')}"></header>
+
+<main class="page-shell page-shell--narrow">
+    <div class="page-heading">
+        <div>
+            <p class="page-heading__eyebrow">Meal log</p>
+            <h1>Edit food entry</h1>
+            <p class="page-heading__description"
+               th:text="${'Update the recorded serving and meal details for ' + foodEntry.foodName + '.'}"></p>
+        </div>
+    </div>
+
+    <section class="card">
+        <form class="form-grid" th:action="@{/food/{id}(id=${foodEntry.id})}"
+              th:object="${foodEntryEditRequest}" method="post">
+            <div class="form-field form-field--full">
+                <p class="form-label">Saved food</p>
+                <p th:text="${foodEntry.savedFoodBrand != null
+                        ? foodEntry.savedFoodBrand + ' - ' + foodEntry.foodName
+                        : foodEntry.foodName}"></p>
+                <p class="field-hint">The saved food associated with this historical entry cannot be changed.</p>
+            </div>
+
+            <div class="form-field">
+                <label for="amount">Consumed amount</label>
+                <input id="amount" type="number" th:field="*{amount}" min="0.01" step="0.01" required>
+                <p class="field-error" th:if="${#fields.hasErrors('amount')}" th:errors="*{amount}"></p>
+            </div>
+
+            <div class="form-field">
+                <label for="unit">Consumed unit</label>
+                <input id="unit" type="text" th:field="*{unit}" maxlength="50" required>
+                <p class="field-error" th:if="${#fields.hasErrors('unit')}" th:errors="*{unit}"></p>
+            </div>
+
+            <div class="form-field">
+                <label for="mealType">Meal type</label>
+                <select id="mealType" th:field="*{mealType}" required>
+                    <option value="">Select a meal type</option>
+                    <option th:each="type : ${mealTypes}"
+                            th:value="${type.name()}"
+                            th:text="${type.displayName}">
+                    </option>
+                </select>
+                <p class="field-error" th:if="${#fields.hasErrors('mealType')}" th:errors="*{mealType}"></p>
+            </div>
+
+            <div class="form-field">
+                <label for="eatenAt">Eaten at</label>
+                <input id="eatenAt" type="datetime-local" th:field="*{eatenAt}" required>
+                <p class="field-error" th:if="${#fields.hasErrors('eatenAt')}" th:errors="*{eatenAt}"></p>
+            </div>
+
+            <div class="form-field form-field--full">
+                <label for="notes">Notes</label>
+                <textarea id="notes" th:field="*{notes}" rows="4"></textarea>
+                <p class="field-error" th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit">Update food entry</button>
+                <a class="button button--secondary" th:href="@{/food}">Cancel</a>
+            </div>
+        </form>
+    </section>
+</main>
+</body>
+</html>

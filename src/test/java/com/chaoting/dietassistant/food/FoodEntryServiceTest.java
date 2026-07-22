@@ -160,6 +160,169 @@ class FoodEntryServiceTest {
     }
 
     @Test
+    void loadAndUpdateUseProfileScopedEntryAndStoredSnapshotNutrition() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        FoodEntryResponse loaded = foodEntryService.getForEdit(42L);
+        FoodEntryEditRequest request = foodEntryService.toEditRequest(loaded);
+
+        assertThat(foodEntryRepository.idForDeleteLookup).isEqualTo(42L);
+        assertThat(foodEntryRepository.profileIdForDeleteLookup).isEqualTo(7L);
+        assertThat(request.getAmount()).isEqualByComparingTo("1.50");
+        assertThat(request.getUnit()).isEqualTo("slice");
+        assertThat(request.getMealType()).isEqualTo(MealType.BREAKFAST);
+        assertThat(request.getNotes()).isEqualTo("Original");
+
+        request.setAmount(new BigDecimal("80.00"));
+        request.setUnit("Grams");
+        request.setMealType(MealType.DINNER);
+        request.setEatenAt(LocalDateTime.of(2026, 6, 22, 18, 30));
+        request.setNotes("  Updated  ");
+
+        assertThat(foodEntryService.validateUpdate(42L, request)).isEmpty();
+        FoodEntryResponse updated = foodEntryService.update(42L, request);
+
+        assertThat(updated.amount()).isEqualByComparingTo("80.00");
+        assertThat(updated.unit()).isEqualTo("Grams");
+        assertThat(updated.calculationMultiplier()).isEqualByComparingTo("2.00000000");
+        assertThat(updated.calories()).isEqualByComparingTo("200.00");
+        assertThat(updated.proteinGrams()).isEqualByComparingTo("8.00");
+        assertThat(updated.carbohydrateGrams()).isEqualByComparingTo("40.00");
+        assertThat(updated.fatGrams()).isEqualByComparingTo("2.00");
+        assertThat(updated.fiberGrams()).isEqualByComparingTo("4.00");
+        assertThat(updated.mealType()).isEqualTo(MealType.DINNER);
+        assertThat(updated.eatenAt()).isEqualTo(LocalDateTime.of(2026, 6, 22, 18, 30));
+        assertThat(updated.notes()).isEqualTo("Updated");
+    }
+
+    @Test
+    void updateRejectsIncompatibleUnitWithoutConsultingSavedFood() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        foodEntryRepository.entryByIdAndProfile = Optional.of(snapshotEntry());
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+        FoodEntryEditRequest request = editRequest("2.00", "cup");
+
+        assertThat(foodEntryService.validateUpdate(42L, request))
+                .contains(new FoodEntryService.EditValidationError(
+                        "unit",
+                        "Use the stored reference unit, or grams when a reference weight is saved."
+                ));
+    }
+
+    @Test
+    void legacyEntryAllowsDetailsButRejectsAmountOrUnitChanges() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry legacyEntry = legacyEntry("Legacy", "100.00", LocalDateTime.of(2026, 6, 22, 12, 0));
+        foodEntryRepository.entryByIdAndProfile = Optional.of(legacyEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        FoodEntryEditRequest detailsOnly = editRequest("1.00", "serving");
+        detailsOnly.setMealType(MealType.DINNER);
+        detailsOnly.setNotes("Changed");
+        assertThat(foodEntryService.validateUpdate(42L, detailsOnly)).isEmpty();
+        assertThat(foodEntryService.update(42L, detailsOnly).mealType()).isEqualTo(MealType.DINNER);
+
+        FoodEntryEditRequest changedAmount = editRequest("2.00", "serving");
+        assertThat(foodEntryService.validateUpdate(42L, changedAmount))
+                .contains(new FoodEntryService.EditValidationError(
+                        "amount",
+                        "Amount and unit cannot be changed because this legacy entry does not contain a complete nutrition snapshot."
+                ));
+    }
+
+    @Test
+    void updateUsesOneFinalRoundingForSmallStoredNutritionValues() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntry.setSavedFoodReferenceAmount(new BigDecimal("1.00"));
+        foodEntry.setAmount(new BigDecimal("3.00"));
+        foodEntry.setCalculationMultiplier(new BigDecimal("3.00000000"));
+        foodEntry.setCalories(new BigDecimal("0.01"));
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+        FoodEntryEditRequest request = editRequest("6.00", "slice");
+
+        FoodEntryResponse updated = foodEntryService.update(42L, request);
+
+        assertThat(updated.calories()).isEqualByComparingTo("0.02");
+    }
+
+    @Test
+    void changingOnlyGramAliasPreservesStoredNutritionValuesExactly() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntry.setAmount(new BigDecimal("60.00"));
+        foodEntry.setUnit("g");
+        foodEntry.setCalculationMultiplier(new BigDecimal("1.50000000"));
+        foodEntry.setCalories(new BigDecimal("100.10"));
+        foodEntry.setProteinGrams(new BigDecimal("4.20"));
+        foodEntry.setCarbohydrateGrams(new BigDecimal("20.30"));
+        foodEntry.setFatGrams(new BigDecimal("1.40"));
+        foodEntry.setFiberGrams(new BigDecimal("2.50"));
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+        FoodEntryEditRequest request = editRequest("60.00", "gram");
+
+        FoodEntryResponse updated = foodEntryService.update(42L, request);
+
+        assertThat(updated.calories()).isEqualTo(new BigDecimal("100.10"));
+        assertThat(updated.proteinGrams()).isEqualTo(new BigDecimal("4.20"));
+        assertThat(updated.carbohydrateGrams()).isEqualTo(new BigDecimal("20.30"));
+        assertThat(updated.fatGrams()).isEqualTo(new BigDecimal("1.40"));
+        assertThat(updated.fiberGrams()).isEqualTo(new BigDecimal("2.50"));
+        assertThat(updated.unit()).isEqualTo("gram");
+    }
+
+    @Test
+    void gramBasedSnapshotWithNullReferenceWeightIsUnsafe() {
+        assertUnsafeGramSnapshotWeight(null);
+    }
+
+    @Test
+    void gramBasedSnapshotWithZeroReferenceWeightIsUnsafe() {
+        assertUnsafeGramSnapshotWeight(new BigDecimal("0.00"));
+    }
+
+    @Test
+    void gramBasedSnapshotWithNegativeReferenceWeightIsUnsafe() {
+        assertUnsafeGramSnapshotWeight(new BigDecimal("-40.00"));
+    }
+
+    @Test
+    void nullCalculationMultiplierIsUnsafe() {
+        assertUnsafeCalculationMultiplier(null);
+    }
+
+    @Test
+    void zeroCalculationMultiplierIsUnsafe() {
+        assertUnsafeCalculationMultiplier(new BigDecimal("0.00000000"));
+    }
+
+    @Test
+    void negativeCalculationMultiplierIsUnsafe() {
+        assertUnsafeCalculationMultiplier(new BigDecimal("-1.50000000"));
+    }
+
+    @Test
+    void positiveInconsistentCalculationMultiplierIsUnsafe() {
+        assertUnsafeCalculationMultiplier(new BigDecimal("2.00000000"));
+    }
+
+    @Test
+    void consistentCalculationMultiplierWithDifferentScaleIsSafe() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntry.setCalculationMultiplier(new BigDecimal("1.5"));
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        assertThat(foodEntryService.validateUpdate(42L, editRequest("2.00", "slice"))).isEmpty();
+    }
+
+    @Test
     void createRequiresProfile() {
         FoodEntryService foodEntryService = new FoodEntryService(
                 new FakeFoodEntryRepository().proxy(),
@@ -191,6 +354,46 @@ class FoodEntryServiceTest {
         request.setEatenAt(LocalDateTime.of(2026, 6, 22, 12, 0));
         request.setNotes("  Notes  ");
         return request;
+    }
+
+    private FoodEntryEditRequest editRequest(String amount, String unit) {
+        FoodEntryEditRequest request = new FoodEntryEditRequest();
+        request.setAmount(new BigDecimal(amount));
+        request.setUnit(unit);
+        request.setMealType(MealType.SNACK);
+        request.setEatenAt(LocalDateTime.of(2026, 6, 22, 12, 0));
+        return request;
+    }
+
+    private void assertUnsafeGramSnapshotWeight(BigDecimal referenceWeight) {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntry.setAmount(new BigDecimal("60.00"));
+        foodEntry.setUnit("grams");
+        foodEntry.setSavedFoodReferenceWeightGrams(referenceWeight);
+        foodEntry.setCalculationMultiplier(new BigDecimal("1.50000000"));
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        assertThat(foodEntryService.validateUpdate(42L, editRequest("80.00", "grams")))
+                .contains(new FoodEntryService.EditValidationError(
+                        "amount",
+                        "Amount and unit cannot be changed because this legacy entry does not contain a complete nutrition snapshot."
+                ));
+    }
+
+    private void assertUnsafeCalculationMultiplier(BigDecimal multiplier) {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntry.setCalculationMultiplier(multiplier);
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        assertThat(foodEntryService.validateUpdate(42L, editRequest("2.00", "slice")))
+                .contains(new FoodEntryService.EditValidationError(
+                        "amount",
+                        "Amount and unit cannot be changed because this legacy entry does not contain a complete nutrition snapshot."
+                ));
     }
 
     private ProfileResponse profile() {
@@ -250,6 +453,27 @@ class FoodEntryServiceTest {
         foodEntry.setMealType(MealType.SNACK);
         foodEntry.setEatenAt(eatenAt);
         foodEntry.setCreatedAt(LocalDateTime.of(2026, 6, 22, 10, 15, 30));
+        return foodEntry;
+    }
+
+    private FoodEntry snapshotEntry() {
+        FoodEntry foodEntry = legacyEntry("Bread", "150.00", LocalDateTime.of(2026, 6, 22, 8, 0));
+        foodEntry.setSavedFoodId(10L);
+        foodEntry.setSavedFoodName("Bread");
+        foodEntry.setSavedFoodBrand("Bakery");
+        foodEntry.setSavedFoodReferenceAmount(new BigDecimal("1.00"));
+        foodEntry.setSavedFoodReferenceUnit("slice");
+        foodEntry.setSavedFoodReferenceWeightGrams(new BigDecimal("40.00"));
+        foodEntry.setAmount(new BigDecimal("1.50"));
+        foodEntry.setUnit("slice");
+        foodEntry.setCalories(new BigDecimal("150.00"));
+        foodEntry.setProteinGrams(new BigDecimal("6.00"));
+        foodEntry.setCarbohydrateGrams(new BigDecimal("30.00"));
+        foodEntry.setFatGrams(new BigDecimal("1.50"));
+        foodEntry.setFiberGrams(new BigDecimal("3.00"));
+        foodEntry.setCalculationMultiplier(new BigDecimal("1.50000000"));
+        foodEntry.setMealType(MealType.BREAKFAST);
+        foodEntry.setNotes("Original");
         return foodEntry;
     }
 
