@@ -136,9 +136,13 @@
                     <td th:text="${entry.fiberGrams}"></td>
                     <td th:text="${entry.notes} ?: ''"></td>
                     <td>
-                        <form th:action="@{/food/{id}/delete(id=${entry.id})}" method="post">
-                            <button class="button--danger button--small" type="submit">Delete</button>
-                        </form>
+                        <div class="table-actions">
+                            <a class="button button--secondary button--small"
+                               th:href="@{/food/{id}/edit(id=${entry.id})}">Edit</a>
+                            <form th:action="@{/food/{id}/delete(id=${entry.id})}" method="post">
+                                <button class="button--danger button--small" type="submit">Delete</button>
+                            </form>
+                        </div>
                     </td>
                 </tr>
                 </tbody>

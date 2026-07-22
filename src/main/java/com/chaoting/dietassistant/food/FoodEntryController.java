@@ -56,6 +56,39 @@ public class FoodEntryController {
         return "redirect:/food";
     }
 
+    @GetMapping("/food/{id}/edit")
+    public String editFoodEntry(@PathVariable Long id, Model model) {
+        FoodEntryResponse foodEntry = foodEntryService.getForEdit(id);
+        if (!model.containsAttribute("foodEntryEditRequest")) {
+            model.addAttribute("foodEntryEditRequest", foodEntryService.toEditRequest(foodEntry));
+        }
+        addEditModelAttributes(model, foodEntry);
+        return "food-entry-edit";
+    }
+
+    @PostMapping("/food/{id}")
+    public String updateFoodEntry(
+            @PathVariable Long id,
+            @Valid @ModelAttribute("foodEntryEditRequest") FoodEntryEditRequest request,
+            BindingResult bindingResult,
+            Model model,
+            RedirectAttributes redirectAttributes
+    ) {
+        FoodEntryResponse foodEntry = foodEntryService.getForEdit(id);
+        if (!bindingResult.hasErrors()) {
+            foodEntryService.validateUpdate(id, request)
+                    .ifPresent(error -> bindingResult.rejectValue(error.field(), "foodEntryEditRequest", error.message()));
+        }
+        if (bindingResult.hasErrors()) {
+            addEditModelAttributes(model, foodEntry);
+            return "food-entry-edit";
+        }
+
+        foodEntryService.update(id, request);
+        redirectAttributes.addFlashAttribute("successMessage", "Food entry updated.");
+        return "redirect:/food";
+    }
+
     @PostMapping("/food/{id}/delete")
     public String deleteFoodEntry(@PathVariable Long id, RedirectAttributes redirectAttributes) {
         foodEntryService.delete(id);
@@ -69,5 +102,10 @@ public class FoodEntryController {
         model.addAttribute("savedFoods", savedFoodService.listActiveSavedFoods());
         model.addAttribute("foodEntries", foodEntries);
         model.addAttribute("dailyTotals", foodEntryService.calculateTotals(foodEntries));
+    }
+
+    private void addEditModelAttributes(Model model, FoodEntryResponse foodEntry) {
+        model.addAttribute("foodEntry", foodEntry);
+        model.addAttribute("mealTypes", MealType.values());
     }
 }

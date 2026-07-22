@@ -4,6 +4,7 @@ import com.chaoting.dietassistant.profile.CurrentProfileProvider;
 import com.chaoting.dietassistant.profile.ProfileResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -13,6 +14,8 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
+
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 
 @Service
 public class FoodEntryService {
@@ -152,6 +155,69 @@ public class FoodEntryService {
         return toResponse(foodEntryRepository.save(foodEntry));
     }
 
+    @Transactional(readOnly = true)
+    public FoodEntryResponse getForEdit(Long id) {
+        return toResponse(requireCurrentProfileEntry(id));
+    }
+
+    public FoodEntryEditRequest toEditRequest(FoodEntryResponse foodEntry) {
+        FoodEntryEditRequest request = new FoodEntryEditRequest();
+        request.setAmount(foodEntry.amount());
+        request.setUnit(foodEntry.unit());
+        request.setMealType(foodEntry.mealType());
+        request.setEatenAt(foodEntry.eatenAt());
+        request.setNotes(foodEntry.notes());
+        return request;
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<EditValidationError> validateUpdate(Long id, FoodEntryEditRequest request) {
+        FoodEntry foodEntry = requireCurrentProfileEntry(id);
+        if (!amountOrUnitChanged(foodEntry, request)) {
+            return Optional.empty();
+        }
+        if (!hasSafeRecalculationSnapshot(foodEntry)) {
+            return Optional.of(new EditValidationError(
+                    "amount",
+                    "Amount and unit cannot be changed because this legacy entry does not contain a complete nutrition snapshot."
+            ));
+        }
+        if (!isCompatibleUnit(foodEntry, request.getUnit())) {
+            return Optional.of(new EditValidationError(
+                    "unit",
+                    "Use the stored reference unit, or grams when a reference weight is saved."
+            ));
+        }
+        return Optional.empty();
+    }
+
+    @Transactional
+    public FoodEntryResponse update(Long id, FoodEntryEditRequest request) {
+        FoodEntry foodEntry = requireCurrentProfileEntry(id);
+        if (amountOrUnitChanged(foodEntry, request)) {
+            if (!hasSafeRecalculationSnapshot(foodEntry)) {
+                throw new IllegalArgumentException(
+                        "Amount and unit cannot be changed because this legacy entry does not contain a complete nutrition snapshot."
+                );
+            }
+            BigDecimal newMultiplier = calculateMultiplier(foodEntry, request.getAmount(), request.getUnit());
+            if (newMultiplier.compareTo(foodEntry.getCalculationMultiplier()) != 0) {
+                foodEntry.setCalories(recalculateNutrition(foodEntry.getCalories(), foodEntry.getCalculationMultiplier(), newMultiplier));
+                foodEntry.setProteinGrams(recalculateNutrition(foodEntry.getProteinGrams(), foodEntry.getCalculationMultiplier(), newMultiplier));
+                foodEntry.setCarbohydrateGrams(recalculateNutrition(foodEntry.getCarbohydrateGrams(), foodEntry.getCalculationMultiplier(), newMultiplier));
+                foodEntry.setFatGrams(recalculateNutrition(foodEntry.getFatGrams(), foodEntry.getCalculationMultiplier(), newMultiplier));
+                foodEntry.setFiberGrams(recalculateNutrition(foodEntry.getFiberGrams(), foodEntry.getCalculationMultiplier(), newMultiplier));
+            }
+            foodEntry.setAmount(request.getAmount());
+            foodEntry.setUnit(request.getUnit().trim());
+            foodEntry.setCalculationMultiplier(newMultiplier);
+        }
+        foodEntry.setMealType(request.getMealType());
+        foodEntry.setEatenAt(request.getEatenAt());
+        foodEntry.setNotes(blankToNull(request.getNotes()));
+        return toResponse(foodEntryRepository.save(foodEntry));
+    }
+
     @Transactional
     public void delete(Long id) {
         ProfileResponse profile = requireProfile();
@@ -169,13 +235,72 @@ public class FoodEntryService {
         throw new IllegalArgumentException("Use the saved food reference unit, or grams when a reference weight is saved.");
     }
 
+    private BigDecimal calculateMultiplier(FoodEntry foodEntry, BigDecimal amount, String unit) {
+        if (isSameUnit(foodEntry.getSavedFoodReferenceUnit(), unit)) {
+            return amount.divide(foodEntry.getSavedFoodReferenceAmount(), MULTIPLIER_SCALE, ROUNDING_MODE);
+        }
+        if (isGramUnit(unit) && hasPositiveReferenceWeight(foodEntry)) {
+            return amount.divide(foodEntry.getSavedFoodReferenceWeightGrams(), MULTIPLIER_SCALE, ROUNDING_MODE);
+        }
+        throw new IllegalArgumentException("Use the stored reference unit, or grams when a reference weight is saved.");
+    }
+
     private BigDecimal calculateNutrition(BigDecimal referenceNutrition, BigDecimal multiplier) {
         return referenceNutrition.multiply(multiplier).setScale(NUTRITION_SCALE, ROUNDING_MODE);
+    }
+
+    private BigDecimal recalculateNutrition(
+            BigDecimal storedNutrition,
+            BigDecimal storedMultiplier,
+            BigDecimal newMultiplier
+    ) {
+        return storedNutrition
+                .multiply(newMultiplier)
+                .divide(storedMultiplier, NUTRITION_SCALE, ROUNDING_MODE);
     }
 
     private boolean isCompatibleUnit(SavedFood savedFood, String unit) {
         return isSameUnit(savedFood.getReferenceUnit(), unit)
                 || (isGramUnit(unit) && savedFood.getReferenceWeightGrams() != null);
+    }
+
+    private boolean isCompatibleUnit(FoodEntry foodEntry, String unit) {
+        return isSameUnit(foodEntry.getSavedFoodReferenceUnit(), unit)
+                || (isGramUnit(unit) && hasPositiveReferenceWeight(foodEntry));
+    }
+
+    private boolean amountOrUnitChanged(FoodEntry foodEntry, FoodEntryEditRequest request) {
+        boolean amountChanged = request.getAmount() != null
+                && foodEntry.getAmount().compareTo(request.getAmount()) != 0;
+        boolean unitChanged = request.getUnit() != null
+                && !foodEntry.getUnit().trim().equalsIgnoreCase(request.getUnit().trim());
+        return amountChanged || unitChanged;
+    }
+
+    private boolean hasSafeRecalculationSnapshot(FoodEntry foodEntry) {
+        if (foodEntry.getSavedFoodReferenceAmount() == null
+                || foodEntry.getSavedFoodReferenceAmount().signum() <= 0
+                || foodEntry.getSavedFoodReferenceUnit() == null
+                || foodEntry.getSavedFoodReferenceUnit().isBlank()
+                || foodEntry.getCalculationMultiplier() == null
+                || foodEntry.getCalculationMultiplier().signum() <= 0) {
+            return false;
+        }
+        try {
+            BigDecimal expectedMultiplier = calculateMultiplier(
+                    foodEntry,
+                    foodEntry.getAmount(),
+                    foodEntry.getUnit()
+            );
+            return expectedMultiplier.compareTo(foodEntry.getCalculationMultiplier()) == 0;
+        } catch (IllegalArgumentException | ArithmeticException exception) {
+            return false;
+        }
+    }
+
+    private boolean hasPositiveReferenceWeight(FoodEntry foodEntry) {
+        return foodEntry.getSavedFoodReferenceWeightGrams() != null
+                && foodEntry.getSavedFoodReferenceWeightGrams().signum() > 0;
     }
 
     private boolean isSameUnit(String first, String second) {
@@ -198,6 +323,12 @@ public class FoodEntryService {
     private ProfileResponse requireProfile() {
         return currentProfileProvider.getProfile()
                 .orElseThrow(() -> new IllegalStateException("Create the user profile before recording food entries."));
+    }
+
+    private FoodEntry requireCurrentProfileEntry(Long id) {
+        ProfileResponse profile = requireProfile();
+        return foodEntryRepository.findByIdAndProfileId(id, profile.id())
+                .orElseThrow(() -> new ResponseStatusException(NOT_FOUND));
     }
 
     private String blankToNull(String value) {
@@ -230,5 +361,8 @@ public class FoodEntryService {
                 foodEntry.getNotes(),
                 foodEntry.getCreatedAt()
         );
+    }
+
+    public record EditValidationError(String field, String message) {
     }
 }

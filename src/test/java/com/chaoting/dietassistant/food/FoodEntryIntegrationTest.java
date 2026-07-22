@@ -55,14 +55,16 @@ class FoodEntryIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     private HttpClient httpClient;
+    private CookieManager cookieManager;
 
     @BeforeEach
     void setUp() {
         foodEntryRepository.deleteAll();
         savedFoodRepository.deleteAll();
         createProfile();
+        cookieManager = new CookieManager();
         httpClient = HttpClient.newBuilder()
-                .cookieHandler(new CookieManager())
+                .cookieHandler(cookieManager)
                 .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
     }
@@ -258,6 +260,183 @@ class FoodEntryIntegrationTest {
     }
 
     @Test
+    void editFoodEntryLoadsValuesAndUpdatesFromSnapshotAfterSavedFoodChangesAndDeactivation()
+            throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Bread", "Bakery", true);
+        post("/food", foodEntryForm(savedFood.getId(), "1.50", "slice", LocalDateTime.now().minusHours(2)));
+        FoodEntry entry = foodEntryRepository.findAll().getFirst();
+
+        HttpResponse<String> editResponse = get("/food/" + entry.getId() + "/edit");
+
+        assertThat(editResponse.statusCode()).isEqualTo(200);
+        assertThat(editResponse.body()).contains(
+                "Edit food entry",
+                "value=\"1.50\"",
+                "value=\"slice\"",
+                "Afternoon snack",
+                "Bakery - Bread"
+        );
+
+        savedFood.setCalories(new BigDecimal("999.00"));
+        savedFood.setProteinGrams(new BigDecimal("99.00"));
+        savedFood.setActive(false);
+        savedFoodRepository.save(savedFood);
+
+        Map<String, String> update = foodEntryEditForm(
+                "80.00",
+                "gram",
+                "DINNER",
+                LocalDateTime.now().minusMinutes(10),
+                "Dinner notes"
+        );
+        HttpClient redirectClient = HttpClient.newBuilder()
+                .cookieHandler(cookieManager)
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+        HttpResponse<String> updateResponse = post(redirectClient, "/food/" + entry.getId(), update);
+
+        assertThat(updateResponse.statusCode()).isBetween(300, 399);
+        URI redirectLocation = URI.create(updateResponse.headers().firstValue("Location").orElseThrow());
+        assertThat(redirectLocation.getPath()).isEqualTo("/food");
+        HttpResponse<String> redirectedResponse = get(redirectClient, "/food");
+        assertThat(redirectedResponse.statusCode()).isEqualTo(200);
+        assertThat(redirectedResponse.body()).contains("Food entry updated.");
+        FoodEntry updated = foodEntryRepository.findById(entry.getId()).orElseThrow();
+        assertThat(updated.getSavedFoodId()).isEqualTo(savedFood.getId());
+        assertThat(updated.getCalculationMultiplier()).isEqualByComparingTo("2.00000000");
+        assertThat(updated.getCalories()).isEqualByComparingTo("200.00");
+        assertThat(updated.getProteinGrams()).isEqualByComparingTo("8.00");
+        assertThat(updated.getCarbohydrateGrams()).isEqualByComparingTo("40.00");
+        assertThat(updated.getFatGrams()).isEqualByComparingTo("2.00");
+        assertThat(updated.getFiberGrams()).isEqualByComparingTo("4.00");
+        assertThat(updated.getMealType()).isEqualTo(MealType.DINNER);
+        assertThat(updated.getNotes()).isEqualTo("Dinner notes");
+    }
+
+    @Test
+    void editFoodEntryUsesSnapshotsAfterSavedFoodIsDeleted() throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Bread", "Bakery", true);
+        post("/food", foodEntryForm(savedFood.getId(), "1.00", "slice", LocalDateTime.now().minusHours(2)));
+        FoodEntry entry = foodEntryRepository.findAll().getFirst();
+
+        savedFoodRepository.deleteById(savedFood.getId());
+        savedFoodRepository.flush();
+
+        FoodEntry entryAfterDeletion = foodEntryRepository.findById(entry.getId()).orElseThrow();
+        assertThat(entryAfterDeletion.getSavedFoodId()).isNull();
+        assertThat(entryAfterDeletion.getSavedFoodReferenceAmount()).isEqualByComparingTo("1.00");
+        assertThat(entryAfterDeletion.getSavedFoodReferenceUnit()).isEqualTo("slice");
+
+        HttpResponse<String> response = post("/food/" + entry.getId(), foodEntryEditForm(
+                "2.00",
+                "slice",
+                "LUNCH",
+                LocalDateTime.now().minusMinutes(10),
+                "After deletion"
+        ));
+
+        assertThat(response.body()).contains("Food entry updated.");
+        FoodEntry updated = foodEntryRepository.findById(entry.getId()).orElseThrow();
+        assertThat(updated.getSavedFoodId()).isNull();
+        assertThat(updated.getAmount()).isEqualByComparingTo("2.00");
+        assertThat(updated.getCalories()).isEqualByComparingTo("200.00");
+        assertThat(updated.getProteinGrams()).isEqualByComparingTo("8.00");
+        assertThat(updated.getCarbohydrateGrams()).isEqualByComparingTo("40.00");
+        assertThat(updated.getFatGrams()).isEqualByComparingTo("2.00");
+        assertThat(updated.getFiberGrams()).isEqualByComparingTo("4.00");
+    }
+
+    @Test
+    void editFoodEntryValidationPreservesValuesAndLegacyDetailsRemainEditable()
+            throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Bread", "Bakery", true);
+        post("/food", foodEntryForm(savedFood.getId(), "1.00", "slice", LocalDateTime.now().minusHours(2)));
+        FoodEntry snapshotEntry = foodEntryRepository.findAll().getFirst();
+
+        HttpResponse<String> incompatible = post("/food/" + snapshotEntry.getId(), foodEntryEditForm(
+                "2.00",
+                "cups",
+                "LUNCH",
+                LocalDateTime.now().minusMinutes(20),
+                "Keep this submitted note"
+        ));
+
+        assertThat(incompatible.statusCode()).isEqualTo(200);
+        assertThat(incompatible.uri().getPath()).endsWith("/food/" + snapshotEntry.getId());
+        assertThat(incompatible.body()).contains(
+                "Use the stored reference unit, or grams when a reference weight is saved.",
+                "value=\"2.00\"",
+                "value=\"cups\"",
+                "Keep this submitted note"
+        );
+
+        FoodEntry legacy = saveLegacyEntry(
+                "Legacy soup", "100.00", "5.00", "10.00", "3.00", "1.00", LocalDateTime.now().minusHours(1)
+        );
+        HttpResponse<String> legacyAmountChange = post("/food/" + legacy.getId(), foodEntryEditForm(
+                "2.00", "serving", "DINNER", LocalDateTime.now().minusMinutes(15), "Legacy changed"
+        ));
+        assertThat(legacyAmountChange.body()).contains(
+                "Amount and unit cannot be changed because this legacy entry does not contain a complete nutrition snapshot."
+        );
+
+        HttpResponse<String> legacyDetails = post("/food/" + legacy.getId(), foodEntryEditForm(
+                "1.00", "serving", "DINNER", LocalDateTime.now().minusMinutes(15), "Legacy changed"
+        ));
+        assertThat(legacyDetails.body()).contains("Food entry updated.");
+        FoodEntry updatedLegacy = foodEntryRepository.findById(legacy.getId()).orElseThrow();
+        assertThat(updatedLegacy.getMealType()).isEqualTo(MealType.DINNER);
+        assertThat(updatedLegacy.getNotes()).isEqualTo("Legacy changed");
+        assertThat(updatedLegacy.getCalories()).isEqualByComparingTo("100.00");
+    }
+
+    @Test
+    void editFoodEntryReturnsNotFoundForMissingAndForeignProfileEntries()
+            throws IOException, InterruptedException {
+        assertThat(get("/food/999998/edit").statusCode()).isEqualTo(404);
+        assertThat(post("/food/999998", foodEntryEditForm(
+                "1.00", "serving", "SNACK", LocalDateTime.now().minusMinutes(5), ""
+        )).statusCode()).isEqualTo(404);
+
+        insertForeignFoodEntry(999999L);
+
+        assertThat(get("/food/999999/edit").statusCode()).isEqualTo(404);
+        assertThat(post("/food/999999", foodEntryEditForm(
+                "1.00", "serving", "SNACK", LocalDateTime.now().minusMinutes(5), ""
+        )).statusCode()).isEqualTo(404);
+    }
+
+    @Test
+    void editFoodEntryBeanValidationPreservesSubmittedValues() throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Bread", "Bakery", true);
+        post("/food", foodEntryForm(savedFood.getId(), "1.00", "slice", LocalDateTime.now().minusHours(2)));
+        FoodEntry entry = foodEntryRepository.findAll().getFirst();
+        LocalDateTime futureEatenAt = LocalDateTime.now().plusDays(1).withSecond(0).withNano(0);
+
+        HttpResponse<String> response = post("/food/" + entry.getId(), foodEntryEditForm(
+                "2.00",
+                "grams",
+                "LUNCH",
+                futureEatenAt,
+                "Preserve these notes"
+        ));
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.uri().getPath()).endsWith("/food/" + entry.getId());
+        assertThat(response.body()).contains(
+                "must be a date in the past or in the present",
+                "value=\"2.00\"",
+                "value=\"grams\"",
+                "value=\"LUNCH\" selected=\"selected\"",
+                "value=\"" + futureEatenAt + "\"",
+                "Preserve these notes"
+        );
+        FoodEntry unchanged = foodEntryRepository.findById(entry.getId()).orElseThrow();
+        assertThat(unchanged.getAmount()).isEqualByComparingTo("1.00");
+        assertThat(unchanged.getMealType()).isEqualTo(MealType.SNACK);
+    }
+
+    @Test
     void postFoodReturnsFormWhenValidationFails() throws IOException, InterruptedException {
         SavedFood savedFood = saveSavedFood("Soup", "Kitchen", true);
         savedFood.setReferenceWeightGrams(null);
@@ -402,6 +581,34 @@ class FoodEntryIntegrationTest {
         }
     }
 
+    private void insertForeignFoodEntry(Long id) {
+        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=0");
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO food_entries (
+                        id, profile_id, food_name, amount, unit, calories, protein_grams,
+                        carbohydrate_grams, fat_grams, fiber_grams, meal_type, eaten_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    id,
+                    999999L,
+                    "Foreign entry",
+                    new BigDecimal("1.00"),
+                    "serving",
+                    new BigDecimal("100.00"),
+                    new BigDecimal("5.00"),
+                    new BigDecimal("10.00"),
+                    new BigDecimal("3.00"),
+                    new BigDecimal("1.00"),
+                    "SNACK",
+                    LocalDateTime.now().minusMinutes(5),
+                    LocalDateTime.now()
+            );
+        } finally {
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
+        }
+    }
+
     private FoodEntry saveLegacyEntry(
             String foodName,
             String calories,
@@ -473,18 +680,43 @@ class FoodEntryIntegrationTest {
         return formValues;
     }
 
+    private Map<String, String> foodEntryEditForm(
+            String amount,
+            String unit,
+            String mealType,
+            LocalDateTime eatenAt,
+            String notes
+    ) {
+        Map<String, String> formValues = new LinkedHashMap<>();
+        formValues.put("amount", amount);
+        formValues.put("unit", unit);
+        formValues.put("mealType", mealType);
+        formValues.put("eatenAt", eatenAt.withSecond(0).withNano(0).toString());
+        formValues.put("notes", notes);
+        return formValues;
+    }
+
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
+        return get(httpClient, path);
+    }
+
+    private HttpResponse<String> get(HttpClient client, String path) throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder(uri(path)).GET().build();
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> post(String path, Map<String, String> formValues)
+            throws IOException, InterruptedException {
+        return post(httpClient, path, formValues);
+    }
+
+    private HttpResponse<String> post(HttpClient client, String path, Map<String, String> formValues)
             throws IOException, InterruptedException {
         HttpRequest request = HttpRequest.newBuilder(uri(path))
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .POST(HttpRequest.BodyPublishers.ofString(formBody(formValues)))
                 .build();
-        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        return client.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private URI uri(String path) {
