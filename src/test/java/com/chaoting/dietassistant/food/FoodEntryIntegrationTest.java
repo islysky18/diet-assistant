@@ -364,7 +364,7 @@ class FoodEntryIntegrationTest {
         assertThat(incompatible.statusCode()).isEqualTo(200);
         assertThat(incompatible.uri().getPath()).endsWith("/food/" + snapshotEntry.getId());
         assertThat(incompatible.body()).contains(
-                "Use the stored reference unit, or grams when a reference weight is saved.",
+                "Use the stored reference unit, or a supported weight unit when a reference weight is saved.",
                 "value=\"2.00\"",
                 "value=\"cups\"",
                 "Keep this submitted note"
@@ -455,7 +455,7 @@ class FoodEntryIntegrationTest {
         HttpResponse<String> incompatibleUnitResponse = post("/food", formValues);
 
         assertThat(incompatibleUnitResponse.statusCode()).isEqualTo(200);
-        assertThat(incompatibleUnitResponse.body()).contains("Use the saved food reference unit, or grams when a reference weight is saved.");
+        assertThat(incompatibleUnitResponse.body()).contains("Use the saved food reference unit, or a supported weight unit when a reference weight is saved.");
         assertThat(foodEntryRepository.count()).isZero();
     }
 
