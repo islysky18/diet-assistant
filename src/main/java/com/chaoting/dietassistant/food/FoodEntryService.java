@@ -140,7 +140,7 @@ public class FoodEntryService {
         foodEntry.setSavedFoodReferenceWeightGrams(savedFood.getReferenceWeightGrams());
         foodEntry.setFoodName(savedFood.getName());
         foodEntry.setAmount(request.getAmount());
-        foodEntry.setUnit(FoodUnit.canonicalize(request.getUnit()));
+        foodEntry.setUnit(request.getUnit().trim());
         foodEntry.setCalories(calculateNutrition(savedFood.getCalories(), multiplier));
         foodEntry.setProteinGrams(calculateNutrition(savedFood.getProteinGrams(), multiplier));
         foodEntry.setCarbohydrateGrams(calculateNutrition(savedFood.getCarbohydrateGrams(), multiplier));
@@ -208,7 +208,7 @@ public class FoodEntryService {
                 foodEntry.setFiberGrams(recalculateNutrition(foodEntry.getFiberGrams(), foodEntry.getCalculationMultiplier(), newMultiplier));
             }
             foodEntry.setAmount(request.getAmount());
-            foodEntry.setUnit(FoodUnit.canonicalize(request.getUnit()));
+            foodEntry.setUnit(request.getUnit().trim());
             foodEntry.setCalculationMultiplier(newMultiplier);
         }
         foodEntry.setMealType(request.getMealType());
