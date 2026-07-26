@@ -296,7 +296,7 @@ public class FoodEntryService {
         boolean amountChanged = request.getAmount() != null
                 && foodEntry.getAmount().compareTo(request.getAmount()) != 0;
         boolean unitChanged = request.getUnit() != null
-                && !FoodUnit.equivalent(foodEntry.getUnit(), request.getUnit());
+                && !foodEntry.getUnit().trim().equalsIgnoreCase(request.getUnit().trim());
         return amountChanged || unitChanged;
     }
 
