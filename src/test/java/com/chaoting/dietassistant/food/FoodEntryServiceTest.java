@@ -85,7 +85,7 @@ class FoodEntryServiceTest {
 
         Optional<String> validationMessage = foodEntryService.validateCreate(request(10L, "100.00", "g", MealType.LUNCH));
 
-        assertThat(validationMessage).contains("Use the saved food reference unit, or grams when a reference weight is saved.");
+        assertThat(validationMessage).contains("Use the saved food reference unit, or a supported weight unit when a reference weight is saved.");
     }
 
     @Test
@@ -208,7 +208,7 @@ class FoodEntryServiceTest {
         assertThat(foodEntryService.validateUpdate(42L, request))
                 .contains(new FoodEntryService.EditValidationError(
                         "unit",
-                        "Use the stored reference unit, or grams when a reference weight is saved."
+                        "Use the stored reference unit, or a supported weight unit when a reference weight is saved."
                 ));
     }
 
