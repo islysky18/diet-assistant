@@ -78,6 +78,109 @@ class FoodEntryServiceTest {
     }
 
     @Test
+    void weightReferenceUsesReferenceAmountForEquivalentGramAndKilogramIntakes() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Rice", null, "100.00", "grams", null));
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), savedFoodRepository);
+
+        FoodEntryResponse grams = foodEntryService.create(request(10L, "100.00", "g", MealType.LUNCH));
+        FoodEntryResponse kilograms = foodEntryService.create(request(10L, "0.10", "kg", MealType.LUNCH));
+
+        assertThat(grams.calculationMultiplier()).isEqualByComparingTo("1.00000000");
+        assertThat(kilograms.calculationMultiplier()).isEqualByComparingTo("1.00000000");
+        assertThat(kilograms.calories()).isEqualTo(grams.calories()).isEqualTo(new BigDecimal("100.00"));
+        assertThat(kilograms.proteinGrams()).isEqualTo(grams.proteinGrams()).isEqualTo(new BigDecimal("10.00"));
+    }
+
+    @Test
+    void weightReferenceIgnoresInconsistentStoredReferenceWeight() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Rice", null, "100.00", "g", "90.00"));
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), savedFoodRepository);
+
+        FoodEntryResponse grams = foodEntryService.create(request(10L, "100.00", "g", MealType.LUNCH));
+        FoodEntryResponse kilograms = foodEntryService.create(request(10L, "0.10", "kilograms", MealType.LUNCH));
+
+        assertThat(grams.calculationMultiplier()).isEqualByComparingTo("1.00000000");
+        assertThat(kilograms.calculationMultiplier()).isEqualByComparingTo("1.00000000");
+        assertThat(kilograms.calories()).isEqualTo(grams.calories()).isEqualTo(new BigDecimal("100.00"));
+        assertThat(kilograms.proteinGrams()).isEqualTo(grams.proteinGrams()).isEqualTo(new BigDecimal("10.00"));
+        assertThat(kilograms.carbohydrateGrams()).isEqualTo(grams.carbohydrateGrams()).isEqualTo(new BigDecimal("5.00"));
+        assertThat(kilograms.fatGrams()).isEqualTo(grams.fatGrams()).isEqualTo(new BigDecimal("2.00"));
+        assertThat(kilograms.fiberGrams()).isEqualTo(grams.fiberGrams()).isEqualTo(new BigDecimal("0.00"));
+    }
+
+    @Test
+    void poundReferenceAcceptsEquivalentOunces() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Bulk food", null, "1.00", "pound", "400.00"));
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), savedFoodRepository);
+
+        FoodEntryResponse response = foodEntryService.create(request(10L, "16.00", "ounces", MealType.LUNCH));
+
+        assertThat(response.calculationMultiplier()).isEqualByComparingTo("1.00000000");
+        assertThat(response.calories()).isEqualTo(new BigDecimal("100.00"));
+    }
+
+    @Test
+    void updateWeightReferenceSnapshotIgnoresInconsistentStoredReferenceWeight() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntry.setSavedFoodReferenceAmount(new BigDecimal("100.00"));
+        foodEntry.setSavedFoodReferenceUnit("g");
+        foodEntry.setSavedFoodReferenceWeightGrams(new BigDecimal("90.00"));
+        foodEntry.setAmount(new BigDecimal("100.00"));
+        foodEntry.setUnit("g");
+        foodEntry.setCalculationMultiplier(new BigDecimal("1.00000000"));
+        foodEntry.setCalories(new BigDecimal("100.00"));
+        foodEntry.setProteinGrams(new BigDecimal("10.00"));
+        foodEntry.setCarbohydrateGrams(new BigDecimal("5.00"));
+        foodEntry.setFatGrams(new BigDecimal("2.00"));
+        foodEntry.setFiberGrams(new BigDecimal("0.00"));
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        FoodEntryEditRequest request = editRequest("0.10", "kg");
+
+        assertThat(foodEntryService.validateUpdate(42L, request)).isEmpty();
+        FoodEntryResponse response = foodEntryService.update(42L, request);
+
+        assertThat(response.calculationMultiplier()).isEqualByComparingTo("1.00000000");
+        assertThat(response.calories()).isEqualTo(new BigDecimal("100.00"));
+        assertThat(response.proteinGrams()).isEqualTo(new BigDecimal("10.00"));
+        assertThat(response.carbohydrateGrams()).isEqualTo(new BigDecimal("5.00"));
+        assertThat(response.fatGrams()).isEqualTo(new BigDecimal("2.00"));
+        assertThat(response.fiberGrams()).isEqualTo(new BigDecimal("0.00"));
+        assertThat(response.unit()).isEqualTo("kg");
+    }
+
+    @Test
+    void nonWeightReferenceStillUsesReferenceWeightForKilogramIntake() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Flour", null, "1.00", "cup", "125.00"));
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), savedFoodRepository);
+
+        FoodEntryResponse response = foodEntryService.create(request(10L, "0.25", "kg", MealType.LUNCH));
+
+        assertThat(response.calculationMultiplier()).isEqualByComparingTo("2.00000000");
+        assertThat(response.calories()).isEqualTo(new BigDecimal("200.00"));
+    }
+
+    @Test
+    void customReferenceUnitRetainsSameUnitBehaviorAndNutritionRounding() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Powder", null, "3.00", "custom scoop", null));
+        FoodEntryService foodEntryService = service(new FakeFoodEntryRepository(), savedFoodRepository);
+
+        FoodEntryResponse response = foodEntryService.create(request(10L, "1.00", " Custom Scoop ", MealType.SNACK));
+
+        assertThat(response.calculationMultiplier()).isEqualByComparingTo("0.33333333");
+        assertThat(response.calories()).isEqualTo(new BigDecimal("33.33"));
+        assertThat(response.proteinGrams()).isEqualTo(new BigDecimal("3.33"));
+        assertThat(response.unit()).isEqualTo("Custom Scoop");
+    }
+
+    @Test
     void validateCreateRejectsIncompatibleUnit() {
         FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
         savedFoodRepository.activeSavedFood = Optional.of(savedFood("Soup", null, "1.00", "bowl", null));
@@ -85,7 +188,7 @@ class FoodEntryServiceTest {
 
         Optional<String> validationMessage = foodEntryService.validateCreate(request(10L, "100.00", "g", MealType.LUNCH));
 
-        assertThat(validationMessage).contains("Use the saved food reference unit, or grams when a reference weight is saved.");
+        assertThat(validationMessage).contains("Use the saved food reference unit, or a supported weight unit when a reference weight is saved.");
     }
 
     @Test
@@ -208,7 +311,7 @@ class FoodEntryServiceTest {
         assertThat(foodEntryService.validateUpdate(42L, request))
                 .contains(new FoodEntryService.EditValidationError(
                         "unit",
-                        "Use the stored reference unit, or grams when a reference weight is saved."
+                        "Use the stored reference unit, or a supported weight unit when a reference weight is saved."
                 ));
     }
 

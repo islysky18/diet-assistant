@@ -39,12 +39,13 @@
                 </div>
                 <div class="form-field">
                     <label for="referenceUnit">Reference unit</label>
-                    <input id="referenceUnit" type="text" th:field="*{referenceUnit}" maxlength="50" placeholder="serving, cup, slice…" required>
+                    <input id="referenceUnit" type="text" th:field="*{referenceUnit}" list="food-unit-options" maxlength="50" placeholder="serving, cup, slice…" required>
                     <p class="field-error" th:if="${#fields.hasErrors('referenceUnit')}" th:errors="*{referenceUnit}"></p>
                 </div>
                 <div class="form-field">
                     <label for="referenceWeightGrams">Reference weight (g)</label>
                     <input id="referenceWeightGrams" type="number" th:field="*{referenceWeightGrams}" min="0.01" step="0.01">
+                    <p class="field-hint">Only needed for non-weight units such as serving, cup, or piece. Ignored for g, kg, oz, and lb.</p>
                     <p class="field-error" th:if="${#fields.hasErrors('referenceWeightGrams')}" th:errors="*{referenceWeightGrams}"></p>
                 </div>
                 <div class="form-field">
@@ -86,14 +87,31 @@
         <section class="card">
             <div class="section-heading">
                 <h2>Saved foods</h2>
-                <p th:text="${#lists.size(savedFoods) + ' active foods'}"></p>
+                <p th:text="${#lists.size(savedFoods) + ' matching foods'}"></p>
             </div>
+            <form class="form-grid" th:action="@{/foods}" method="get">
+                <div class="form-field">
+                    <label for="q">Search by food or brand</label>
+                    <input id="q" name="q" type="search" th:value="${searchQuery}" placeholder="e.g. yogurt or Chobani">
+                </div>
+                <div class="form-field">
+                    <label>
+                        <input name="includeInactive" type="checkbox" value="true" th:checked="${includeInactive}">
+                        Include inactive foods
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Search</button>
+                    <a class="button button--secondary" th:href="@{/foods}">Clear</a>
+                </div>
+            </form>
             <div class="table-wrap">
                 <table>
                     <thead>
                     <tr>
                         <th>Brand</th>
                         <th>Name</th>
+                        <th>Status</th>
                         <th>Serving</th>
                         <th>Weight</th>
                         <th>Calories</th>
@@ -107,11 +125,12 @@
                     </thead>
                     <tbody>
                     <tr class="empty-row" th:if="${#lists.isEmpty(savedFoods)}">
-                        <td colspan="11">No saved foods yet. Add your first food above.</td>
+                        <td colspan="12" th:text="${#strings.isEmpty(searchQuery) ? 'No saved foods match this view.' : 'No foods match your search.'}"></td>
                     </tr>
                     <tr th:each="savedFood : ${savedFoods}">
                         <td th:text="${savedFood.brand} ?: ''"></td>
                         <td th:text="${savedFood.name}"></td>
+                        <td th:text="${savedFood.active ? 'Active' : 'Inactive'}"></td>
                         <td th:text="${savedFood.referenceServing}"></td>
                         <td th:text="${savedFood.referenceWeightGrams != null ? savedFood.referenceWeightGrams + ' g' : ''}"></td>
                         <td th:text="${savedFood.calories}"></td>
@@ -122,10 +141,13 @@
                         <td th:text="${savedFood.notes} ?: ''"></td>
                         <td>
                             <div class="table-actions">
-                                <a class="button button--small" th:href="@{/food(savedFoodId=${savedFood.id})}">Record intake</a>
+                                <a class="button button--small" th:if="${savedFood.active}" th:href="@{/food(savedFoodId=${savedFood.id})}">Record intake</a>
                                 <a class="button button--secondary button--small" th:href="@{/foods/{id}/edit(id=${savedFood.id})}">Edit</a>
-                                <form th:action="@{/foods/{id}/deactivate(id=${savedFood.id})}" method="post">
+                                <form th:if="${savedFood.active}" th:action="@{/foods/{id}/deactivate(id=${savedFood.id})}" method="post">
                                     <button class="button--danger button--small" type="submit">Deactivate</button>
+                                </form>
+                                <form th:unless="${savedFood.active}" th:action="@{/foods/{id}/reactivate(id=${savedFood.id})}" method="post">
+                                    <button class="button--small" type="submit">Reactivate</button>
                                 </form>
                             </div>
                         </td>
@@ -136,5 +158,19 @@
         </section>
     </div>
 </main>
+<datalist id="food-unit-options">
+    <option value="serving"></option>
+    <option value="piece"></option>
+    <option value="slice"></option>
+    <option value="cup"></option>
+    <option value="tbsp"></option>
+    <option value="tsp"></option>
+    <option value="ml"></option>
+    <option value="l"></option>
+    <option value="g"></option>
+    <option value="kg"></option>
+    <option value="oz"></option>
+    <option value="lb"></option>
+</datalist>
 </body>
 </html>

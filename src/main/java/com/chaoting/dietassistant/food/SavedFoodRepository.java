@@ -9,6 +9,8 @@ interface SavedFoodRepository extends JpaRepository<SavedFood, Long> {
 
     List<SavedFood> findByProfileIdAndActiveTrueOrderByNameAscBrandAscIdAsc(Long profileId);
 
+    List<SavedFood> findByProfileIdOrderByNameAscBrandAscIdAsc(Long profileId);
+
     Optional<SavedFood> findByIdAndProfileId(Long id, Long profileId);
 
     Optional<SavedFood> findByIdAndProfileIdAndActiveTrue(Long id, Long profileId);

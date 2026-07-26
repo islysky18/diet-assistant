@@ -76,6 +76,28 @@ class SavedFoodServiceTest {
     }
 
     @Test
+    void createClearsReferenceWeightForWeightUnitsAndAliases() {
+        SavedFoodService savedFoodService = service(new FakeSavedFoodRepository());
+
+        SavedFoodResponse response = savedFoodService.create(request(
+                "Rice",
+                null,
+                "100.00",
+                " Grams ",
+                "90.00",
+                "100.00",
+                "10.00",
+                "5.00",
+                "2.00",
+                "0.00",
+                null
+        ));
+
+        assertThat(response.referenceUnit()).isEqualTo("g");
+        assertThat(response.referenceWeightGrams()).isNull();
+    }
+
+    @Test
     void listActiveSavedFoodsReturnsRepositoryOrder() {
         FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
         savedFoodRepository.savedFoods = List.of(savedFood("Apple"), savedFood("Bread"));
@@ -84,6 +106,40 @@ class SavedFoodServiceTest {
         List<SavedFoodResponse> responses = savedFoodService.listActiveSavedFoods();
 
         assertThat(responses).extracting(SavedFoodResponse::name).containsExactly("Apple", "Bread");
+    }
+
+    @Test
+    void searchMatchesNameOrBrandAndCanIncludeInactiveFoods() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        SavedFood apple = savedFood("Apple");
+        SavedFood yogurt = savedFood("Greek yogurt");
+        yogurt.setBrand("Chobani");
+        yogurt.setActive(false);
+        savedFoodRepository.allSavedFoods = List.of(apple, yogurt);
+        SavedFoodService savedFoodService = service(savedFoodRepository);
+
+        assertThat(savedFoodService.searchSavedFoods("CHO", false)).isEmpty();
+        assertThat(savedFoodService.searchSavedFoods("CHO", true))
+                .extracting(SavedFoodResponse::name)
+                .containsExactly("Greek yogurt");
+        assertThat(savedFoodService.searchSavedFoods("app", true))
+                .extracting(SavedFoodResponse::name)
+                .containsExactly("Apple");
+    }
+
+    @Test
+    void reactivateMarksSavedFoodActive() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        SavedFood existing = savedFood("Apple");
+        existing.setActive(false);
+        savedFoodRepository.savedFoodById = Optional.of(existing);
+        SavedFoodService savedFoodService = service(savedFoodRepository);
+
+        savedFoodService.reactivate(10L);
+
+        assertThat(savedFoodRepository.savedFood().isActive()).isTrue();
+        assertThat(savedFoodRepository.savedFood().getUpdatedAt())
+                .isEqualTo(LocalDateTime.of(2026, 6, 22, 10, 15, 30));
     }
 
     @Test
@@ -220,6 +276,7 @@ class SavedFoodServiceTest {
     private static class FakeSavedFoodRepository {
 
         private List<SavedFood> savedFoods = List.of();
+        private List<SavedFood> allSavedFoods = List.of();
         private Optional<SavedFood> savedFoodById = Optional.empty();
         private SavedFood savedFood;
 
@@ -234,6 +291,9 @@ class SavedFoodServiceTest {
                         }
                         if (method.getName().equals("findByProfileIdAndActiveTrueOrderByNameAscBrandAscIdAsc")) {
                             return savedFoods;
+                        }
+                        if (method.getName().equals("findByProfileIdOrderByNameAscBrandAscIdAsc")) {
+                            return allSavedFoods;
                         }
                         if (method.getName().equals("findByIdAndProfileId")) {
                             return savedFoodById;

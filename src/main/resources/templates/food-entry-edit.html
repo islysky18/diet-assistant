@@ -33,7 +33,8 @@
 
             <div class="form-field">
                 <label for="unit">Consumed unit</label>
-                <input id="unit" type="text" th:field="*{unit}" maxlength="50" required>
+                <input id="unit" type="text" th:field="*{unit}" list="food-unit-options" maxlength="50" required>
+                <p class="field-hint">Weight units support g, kg, oz, and lb.</p>
                 <p class="field-error" th:if="${#fields.hasErrors('unit')}" th:errors="*{unit}"></p>
             </div>
 
@@ -68,5 +69,19 @@
         </form>
     </section>
 </main>
+<datalist id="food-unit-options">
+    <option value="serving"></option>
+    <option value="piece"></option>
+    <option value="slice"></option>
+    <option value="cup"></option>
+    <option value="tbsp"></option>
+    <option value="tsp"></option>
+    <option value="ml"></option>
+    <option value="l"></option>
+    <option value="g"></option>
+    <option value="kg"></option>
+    <option value="oz"></option>
+    <option value="lb"></option>
+</datalist>
 </body>
 </html>

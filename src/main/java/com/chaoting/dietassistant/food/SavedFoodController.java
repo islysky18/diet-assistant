@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
@@ -20,11 +21,15 @@ public class SavedFoodController {
     }
 
     @GetMapping("/foods")
-    public String showFoods(Model model) {
+    public String showFoods(
+            @RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "false") boolean includeInactive,
+            Model model
+    ) {
         if (!model.containsAttribute("savedFoodRequest")) {
             model.addAttribute("savedFoodRequest", new SavedFoodRequest());
         }
-        addFoodsModelAttributes(model);
+        addFoodsModelAttributes(model, q, includeInactive);
         return "foods";
     }
 
@@ -36,7 +41,7 @@ public class SavedFoodController {
             RedirectAttributes redirectAttributes
     ) {
         if (bindingResult.hasErrors()) {
-            addFoodsModelAttributes(model);
+            addFoodsModelAttributes(model, "", false);
             return "foods";
         }
 
@@ -102,7 +107,16 @@ public class SavedFoodController {
         return "redirect:/foods";
     }
 
-    private void addFoodsModelAttributes(Model model) {
-        model.addAttribute("savedFoods", savedFoodService.listActiveSavedFoods());
+    @PostMapping("/foods/{id}/reactivate")
+    public String reactivateSavedFood(@PathVariable Long id, RedirectAttributes redirectAttributes) {
+        savedFoodService.reactivate(id);
+        redirectAttributes.addFlashAttribute("successMessage", "Saved food reactivated.");
+        return "redirect:/foods?includeInactive=true";
+    }
+
+    private void addFoodsModelAttributes(Model model, String query, boolean includeInactive) {
+        model.addAttribute("savedFoods", savedFoodService.searchSavedFoods(query, includeInactive));
+        model.addAttribute("searchQuery", query);
+        model.addAttribute("includeInactive", includeInactive);
     }
 }

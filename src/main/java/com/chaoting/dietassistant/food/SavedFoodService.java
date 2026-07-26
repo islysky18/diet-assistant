@@ -37,6 +37,18 @@ public class SavedFoodService {
     }
 
     @Transactional(readOnly = true)
+    public List<SavedFoodResponse> searchSavedFoods(String query, boolean includeInactive) {
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
+        return currentProfileProvider.getProfile()
+                .map(profile -> savedFoodRepository.findByProfileIdOrderByNameAscBrandAscIdAsc(profile.id()).stream()
+                        .filter(savedFood -> includeInactive || savedFood.isActive())
+                        .filter(savedFood -> matchesQuery(savedFood, normalizedQuery))
+                        .map(this::toResponse)
+                        .toList())
+                .orElseGet(List::of);
+    }
+
+    @Transactional(readOnly = true)
     public Optional<SavedFoodResponse> getSavedFood(Long id) {
         return currentProfileProvider.getProfile()
                 .flatMap(profile -> savedFoodRepository.findByIdAndProfileId(id, profile.id()))
@@ -85,6 +97,17 @@ public class SavedFoodService {
                 });
     }
 
+    @Transactional
+    public void reactivate(Long id) {
+        ProfileResponse profile = requireProfile();
+        savedFoodRepository.findByIdAndProfileId(id, profile.id())
+                .ifPresent(savedFood -> {
+                    savedFood.setActive(true);
+                    savedFood.setUpdatedAt(LocalDateTime.now(clock));
+                    savedFoodRepository.save(savedFood);
+                });
+    }
+
     SavedFoodRequest toRequest(SavedFoodResponse response) {
         SavedFoodRequest request = new SavedFoodRequest();
         request.setName(response.name());
@@ -102,17 +125,27 @@ public class SavedFoodService {
     }
 
     private void applyRequest(SavedFood savedFood, SavedFoodRequest request) {
+        String referenceUnit = FoodUnit.canonicalize(request.getReferenceUnit());
         savedFood.setName(request.getName().trim());
         savedFood.setBrand(blankToNull(request.getBrand()));
         savedFood.setReferenceAmount(request.getReferenceAmount());
-        savedFood.setReferenceUnit(request.getReferenceUnit().trim());
-        savedFood.setReferenceWeightGrams(request.getReferenceWeightGrams());
+        savedFood.setReferenceUnit(referenceUnit);
+        savedFood.setReferenceWeightGrams(FoodUnit.isWeight(referenceUnit) ? null : request.getReferenceWeightGrams());
         savedFood.setCalories(request.getCalories());
         savedFood.setProteinGrams(request.getProteinGrams());
         savedFood.setCarbohydrateGrams(request.getCarbohydrateGrams());
         savedFood.setFatGrams(request.getFatGrams());
         savedFood.setFiberGrams(request.getFiberGrams());
         savedFood.setNotes(blankToNull(request.getNotes()));
+    }
+
+    private boolean matchesQuery(SavedFood savedFood, String query) {
+        if (query.isEmpty()) {
+            return true;
+        }
+        return savedFood.getName().toLowerCase(java.util.Locale.ROOT).contains(query)
+                || (savedFood.getBrand() != null
+                && savedFood.getBrand().toLowerCase(java.util.Locale.ROOT).contains(query));
     }
 
     private ProfileResponse requireProfile() {

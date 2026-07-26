@@ -11,7 +11,6 @@ import java.math.RoundingMode;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
 
@@ -68,7 +67,7 @@ public class FoodEntryService {
             return Optional.of("Select an active saved food.");
         }
         if (!isCompatibleUnit(savedFood.get(), request.getUnit())) {
-            return Optional.of("Use the saved food reference unit, or grams when a reference weight is saved.");
+            return Optional.of("Use the saved food reference unit, or a supported weight unit when a reference weight is saved.");
         }
         return Optional.empty();
     }
@@ -185,7 +184,7 @@ public class FoodEntryService {
         if (!isCompatibleUnit(foodEntry, request.getUnit())) {
             return Optional.of(new EditValidationError(
                     "unit",
-                    "Use the stored reference unit, or grams when a reference weight is saved."
+                    "Use the stored reference unit, or a supported weight unit when a reference weight is saved."
             ));
         }
         return Optional.empty();
@@ -226,23 +225,33 @@ public class FoodEntryService {
     }
 
     private BigDecimal calculateMultiplier(SavedFood savedFood, BigDecimal amount, String unit) {
-        if (isSameUnit(savedFood.getReferenceUnit(), unit)) {
+        if (FoodUnit.equivalent(savedFood.getReferenceUnit(), unit)) {
             return amount.divide(savedFood.getReferenceAmount(), MULTIPLIER_SCALE, ROUNDING_MODE);
         }
-        if (isGramUnit(unit) && savedFood.getReferenceWeightGrams() != null) {
-            return amount.divide(savedFood.getReferenceWeightGrams(), MULTIPLIER_SCALE, ROUNDING_MODE);
+        if (FoodUnit.isWeight(unit)) {
+            BigDecimal referenceWeight = referenceWeightGrams(savedFood);
+            if (referenceWeight != null && referenceWeight.signum() > 0) {
+                return FoodUnit.toGrams(amount, unit).divide(referenceWeight, MULTIPLIER_SCALE, ROUNDING_MODE);
+            }
         }
-        throw new IllegalArgumentException("Use the saved food reference unit, or grams when a reference weight is saved.");
+        throw new IllegalArgumentException(
+                "Use the saved food reference unit, or a supported weight unit when a reference weight is saved."
+        );
     }
 
     private BigDecimal calculateMultiplier(FoodEntry foodEntry, BigDecimal amount, String unit) {
-        if (isSameUnit(foodEntry.getSavedFoodReferenceUnit(), unit)) {
+        if (FoodUnit.equivalent(foodEntry.getSavedFoodReferenceUnit(), unit)) {
             return amount.divide(foodEntry.getSavedFoodReferenceAmount(), MULTIPLIER_SCALE, ROUNDING_MODE);
         }
-        if (isGramUnit(unit) && hasPositiveReferenceWeight(foodEntry)) {
-            return amount.divide(foodEntry.getSavedFoodReferenceWeightGrams(), MULTIPLIER_SCALE, ROUNDING_MODE);
+        if (FoodUnit.isWeight(unit)) {
+            BigDecimal referenceWeight = referenceWeightGrams(foodEntry);
+            if (referenceWeight != null && referenceWeight.signum() > 0) {
+                return FoodUnit.toGrams(amount, unit).divide(referenceWeight, MULTIPLIER_SCALE, ROUNDING_MODE);
+            }
         }
-        throw new IllegalArgumentException("Use the stored reference unit, or grams when a reference weight is saved.");
+        throw new IllegalArgumentException(
+                "Use the stored reference unit, or a supported weight unit when a reference weight is saved."
+        );
     }
 
     private BigDecimal calculateNutrition(BigDecimal referenceNutrition, BigDecimal multiplier) {
@@ -260,13 +269,15 @@ public class FoodEntryService {
     }
 
     private boolean isCompatibleUnit(SavedFood savedFood, String unit) {
-        return isSameUnit(savedFood.getReferenceUnit(), unit)
-                || (isGramUnit(unit) && savedFood.getReferenceWeightGrams() != null);
+        return FoodUnit.equivalent(savedFood.getReferenceUnit(), unit)
+                || (FoodUnit.isWeight(unit)
+                && hasPositiveReferenceWeight(savedFood));
     }
 
     private boolean isCompatibleUnit(FoodEntry foodEntry, String unit) {
-        return isSameUnit(foodEntry.getSavedFoodReferenceUnit(), unit)
-                || (isGramUnit(unit) && hasPositiveReferenceWeight(foodEntry));
+        return FoodUnit.equivalent(foodEntry.getSavedFoodReferenceUnit(), unit)
+                || (FoodUnit.isWeight(unit)
+                && hasPositiveReferenceWeight(foodEntry));
     }
 
     private boolean amountOrUnitChanged(FoodEntry foodEntry, FoodEntryEditRequest request) {
@@ -299,25 +310,30 @@ public class FoodEntryService {
     }
 
     private boolean hasPositiveReferenceWeight(FoodEntry foodEntry) {
-        return foodEntry.getSavedFoodReferenceWeightGrams() != null
-                && foodEntry.getSavedFoodReferenceWeightGrams().signum() > 0;
+        BigDecimal referenceWeight = referenceWeightGrams(foodEntry);
+        return referenceWeight != null && referenceWeight.signum() > 0;
     }
 
-    private boolean isSameUnit(String first, String second) {
-        return normalizeUnit(first).equals(normalizeUnit(second));
+    private boolean hasPositiveReferenceWeight(SavedFood savedFood) {
+        BigDecimal referenceWeight = referenceWeightGrams(savedFood);
+        return referenceWeight != null && referenceWeight.signum() > 0;
     }
 
-    private String normalizeUnit(String unit) {
-        String normalized = unit == null ? "" : unit.trim().toLowerCase(Locale.ROOT);
-        if (isGramUnit(normalized)) {
-            return "g";
+    private BigDecimal referenceWeightGrams(SavedFood savedFood) {
+        if (FoodUnit.isWeight(savedFood.getReferenceUnit())) {
+            return FoodUnit.toGrams(savedFood.getReferenceAmount(), savedFood.getReferenceUnit());
         }
-        return normalized;
+        return savedFood.getReferenceWeightGrams();
     }
 
-    private boolean isGramUnit(String unit) {
-        String normalized = unit == null ? "" : unit.trim().toLowerCase(Locale.ROOT);
-        return normalized.equals("g") || normalized.equals("gram") || normalized.equals("grams");
+    private BigDecimal referenceWeightGrams(FoodEntry foodEntry) {
+        if (FoodUnit.isWeight(foodEntry.getSavedFoodReferenceUnit())) {
+            return FoodUnit.toGrams(
+                    foodEntry.getSavedFoodReferenceAmount(),
+                    foodEntry.getSavedFoodReferenceUnit()
+            );
+        }
+        return foodEntry.getSavedFoodReferenceWeightGrams();
     }
 
     private ProfileResponse requireProfile() {
