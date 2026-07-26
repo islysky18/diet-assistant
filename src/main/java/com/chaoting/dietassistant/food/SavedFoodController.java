@@ -41,7 +41,7 @@ public class SavedFoodController {
             RedirectAttributes redirectAttributes
     ) {
         if (bindingResult.hasErrors()) {
-            addFoodsModelAttributes(model);
+            addFoodsModelAttributes(model, "", false);
             return "foods";
         }
 
