@@ -87,6 +87,40 @@ class SavedFoodServiceTest {
     }
 
     @Test
+    void searchMatchesNameOrBrandAndCanIncludeInactiveFoods() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        SavedFood apple = savedFood("Apple");
+        SavedFood yogurt = savedFood("Greek yogurt");
+        yogurt.setBrand("Chobani");
+        yogurt.setActive(false);
+        savedFoodRepository.allSavedFoods = List.of(apple, yogurt);
+        SavedFoodService savedFoodService = service(savedFoodRepository);
+
+        assertThat(savedFoodService.searchSavedFoods("CHO", false)).isEmpty();
+        assertThat(savedFoodService.searchSavedFoods("CHO", true))
+                .extracting(SavedFoodResponse::name)
+                .containsExactly("Greek yogurt");
+        assertThat(savedFoodService.searchSavedFoods("app", true))
+                .extracting(SavedFoodResponse::name)
+                .containsExactly("Apple");
+    }
+
+    @Test
+    void reactivateMarksSavedFoodActive() {
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        SavedFood existing = savedFood("Apple");
+        existing.setActive(false);
+        savedFoodRepository.savedFoodById = Optional.of(existing);
+        SavedFoodService savedFoodService = service(savedFoodRepository);
+
+        savedFoodService.reactivate(10L);
+
+        assertThat(savedFoodRepository.savedFood().isActive()).isTrue();
+        assertThat(savedFoodRepository.savedFood().getUpdatedAt())
+                .isEqualTo(LocalDateTime.of(2026, 6, 22, 10, 15, 30));
+    }
+
+    @Test
     void updateChangesFieldsAndUpdatedAtOnly() {
         FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
         SavedFood existing = savedFood("Old name");
@@ -220,6 +254,7 @@ class SavedFoodServiceTest {
     private static class FakeSavedFoodRepository {
 
         private List<SavedFood> savedFoods = List.of();
+        private List<SavedFood> allSavedFoods = List.of();
         private Optional<SavedFood> savedFoodById = Optional.empty();
         private SavedFood savedFood;
 
@@ -234,6 +269,9 @@ class SavedFoodServiceTest {
                         }
                         if (method.getName().equals("findByProfileIdAndActiveTrueOrderByNameAscBrandAscIdAsc")) {
                             return savedFoods;
+                        }
+                        if (method.getName().equals("findByProfileIdOrderByNameAscBrandAscIdAsc")) {
+                            return allSavedFoods;
                         }
                         if (method.getName().equals("findByIdAndProfileId")) {
                             return savedFoodById;
