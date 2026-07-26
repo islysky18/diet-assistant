@@ -229,10 +229,7 @@ public class FoodEntryService {
             return amount.divide(savedFood.getReferenceAmount(), MULTIPLIER_SCALE, ROUNDING_MODE);
         }
         if (FoodUnit.isWeight(unit)) {
-            BigDecimal referenceWeight = savedFood.getReferenceWeightGrams();
-            if (referenceWeight == null && FoodUnit.isWeight(savedFood.getReferenceUnit())) {
-                referenceWeight = FoodUnit.toGrams(savedFood.getReferenceAmount(), savedFood.getReferenceUnit());
-            }
+            BigDecimal referenceWeight = referenceWeightGrams(savedFood);
             if (referenceWeight != null && referenceWeight.signum() > 0) {
                 return FoodUnit.toGrams(amount, unit).divide(referenceWeight, MULTIPLIER_SCALE, ROUNDING_MODE);
             }
@@ -247,14 +244,7 @@ public class FoodEntryService {
             return amount.divide(foodEntry.getSavedFoodReferenceAmount(), MULTIPLIER_SCALE, ROUNDING_MODE);
         }
         if (FoodUnit.isWeight(unit)) {
-            BigDecimal referenceWeight = foodEntry.getSavedFoodReferenceWeightGrams();
-            if (!hasPositiveReferenceWeight(foodEntry)
-                    && FoodUnit.isWeight(foodEntry.getSavedFoodReferenceUnit())) {
-                referenceWeight = FoodUnit.toGrams(
-                        foodEntry.getSavedFoodReferenceAmount(),
-                        foodEntry.getSavedFoodReferenceUnit()
-                );
-            }
+            BigDecimal referenceWeight = referenceWeightGrams(foodEntry);
             if (referenceWeight != null && referenceWeight.signum() > 0) {
                 return FoodUnit.toGrams(amount, unit).divide(referenceWeight, MULTIPLIER_SCALE, ROUNDING_MODE);
             }
@@ -281,15 +271,13 @@ public class FoodEntryService {
     private boolean isCompatibleUnit(SavedFood savedFood, String unit) {
         return FoodUnit.equivalent(savedFood.getReferenceUnit(), unit)
                 || (FoodUnit.isWeight(unit)
-                && (savedFood.getReferenceWeightGrams() != null
-                || FoodUnit.isWeight(savedFood.getReferenceUnit())));
+                && hasPositiveReferenceWeight(savedFood));
     }
 
     private boolean isCompatibleUnit(FoodEntry foodEntry, String unit) {
         return FoodUnit.equivalent(foodEntry.getSavedFoodReferenceUnit(), unit)
                 || (FoodUnit.isWeight(unit)
-                && (hasPositiveReferenceWeight(foodEntry)
-                || FoodUnit.isWeight(foodEntry.getSavedFoodReferenceUnit())));
+                && hasPositiveReferenceWeight(foodEntry));
     }
 
     private boolean amountOrUnitChanged(FoodEntry foodEntry, FoodEntryEditRequest request) {
@@ -322,8 +310,30 @@ public class FoodEntryService {
     }
 
     private boolean hasPositiveReferenceWeight(FoodEntry foodEntry) {
-        return foodEntry.getSavedFoodReferenceWeightGrams() != null
-                && foodEntry.getSavedFoodReferenceWeightGrams().signum() > 0;
+        BigDecimal referenceWeight = referenceWeightGrams(foodEntry);
+        return referenceWeight != null && referenceWeight.signum() > 0;
+    }
+
+    private boolean hasPositiveReferenceWeight(SavedFood savedFood) {
+        BigDecimal referenceWeight = referenceWeightGrams(savedFood);
+        return referenceWeight != null && referenceWeight.signum() > 0;
+    }
+
+    private BigDecimal referenceWeightGrams(SavedFood savedFood) {
+        if (FoodUnit.isWeight(savedFood.getReferenceUnit())) {
+            return FoodUnit.toGrams(savedFood.getReferenceAmount(), savedFood.getReferenceUnit());
+        }
+        return savedFood.getReferenceWeightGrams();
+    }
+
+    private BigDecimal referenceWeightGrams(FoodEntry foodEntry) {
+        if (FoodUnit.isWeight(foodEntry.getSavedFoodReferenceUnit())) {
+            return FoodUnit.toGrams(
+                    foodEntry.getSavedFoodReferenceAmount(),
+                    foodEntry.getSavedFoodReferenceUnit()
+            );
+        }
+        return foodEntry.getSavedFoodReferenceWeightGrams();
     }
 
     private ProfileResponse requireProfile() {

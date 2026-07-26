@@ -76,6 +76,28 @@ class SavedFoodServiceTest {
     }
 
     @Test
+    void createClearsReferenceWeightForWeightUnitsAndAliases() {
+        SavedFoodService savedFoodService = service(new FakeSavedFoodRepository());
+
+        SavedFoodResponse response = savedFoodService.create(request(
+                "Rice",
+                null,
+                "100.00",
+                " Grams ",
+                "90.00",
+                "100.00",
+                "10.00",
+                "5.00",
+                "2.00",
+                "0.00",
+                null
+        ));
+
+        assertThat(response.referenceUnit()).isEqualTo("g");
+        assertThat(response.referenceWeightGrams()).isNull();
+    }
+
+    @Test
     void listActiveSavedFoodsReturnsRepositoryOrder() {
         FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
         savedFoodRepository.savedFoods = List.of(savedFood("Apple"), savedFood("Bread"));

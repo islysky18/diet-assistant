@@ -125,11 +125,12 @@ public class SavedFoodService {
     }
 
     private void applyRequest(SavedFood savedFood, SavedFoodRequest request) {
+        String referenceUnit = FoodUnit.canonicalize(request.getReferenceUnit());
         savedFood.setName(request.getName().trim());
         savedFood.setBrand(blankToNull(request.getBrand()));
         savedFood.setReferenceAmount(request.getReferenceAmount());
-        savedFood.setReferenceUnit(FoodUnit.canonicalize(request.getReferenceUnit()));
-        savedFood.setReferenceWeightGrams(request.getReferenceWeightGrams());
+        savedFood.setReferenceUnit(referenceUnit);
+        savedFood.setReferenceWeightGrams(FoodUnit.isWeight(referenceUnit) ? null : request.getReferenceWeightGrams());
         savedFood.setCalories(request.getCalories());
         savedFood.setProteinGrams(request.getProteinGrams());
         savedFood.setCarbohydrateGrams(request.getCarbohydrateGrams());

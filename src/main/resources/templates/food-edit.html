@@ -38,6 +38,7 @@
             <div class="form-field">
                 <label for="referenceWeightGrams">Reference weight (g)</label>
                 <input id="referenceWeightGrams" type="number" th:field="*{referenceWeightGrams}" min="0.01" step="0.01">
+                <p class="field-hint">Only needed for non-weight units such as serving, cup, or piece. Ignored for g, kg, oz, and lb.</p>
                 <p class="field-error" th:if="${#fields.hasErrors('referenceWeightGrams')}" th:errors="*{referenceWeightGrams}"></p>
             </div>
             <div class="form-field">
