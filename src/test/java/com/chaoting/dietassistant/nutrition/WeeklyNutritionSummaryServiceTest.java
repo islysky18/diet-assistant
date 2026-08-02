@@ -47,8 +47,12 @@ class WeeklyNutritionSummaryServiceTest {
 
     @Test
     void handlesCrossMonthAndCrossYearWeeks() {
-        assertThat(summaryWithEmptyEntries(LocalDate.of(2026, 7, 29)).weekStart())
-                .isEqualTo(LocalDate.of(2026, 7, 20));
+        WeeklyNutritionSummaryResponse crossMonth = summaryWithEmptyEntries(LocalDate.of(2026, 7, 2));
+
+        assertThat(crossMonth.weekStart()).isEqualTo(LocalDate.of(2026, 6, 29));
+        assertThat(crossMonth.weekEnd()).isEqualTo(LocalDate.of(2026, 7, 5));
+        assertThat(crossMonth.dateRangeLabel()).isEqualTo("Jun 29–Jul 5, 2026");
+        assertThat(crossMonth.currentWeek()).isFalse();
 
         WeeklyNutritionSummaryResponse crossYear = summaryWithEmptyEntries(LocalDate.of(2025, 12, 31));
 
@@ -62,6 +66,21 @@ class WeeklyNutritionSummaryServiceTest {
         stubEntries(List.of());
 
         WeeklyNutritionSummaryResponse summary = service.getSummary(LocalDate.of(2026, 8, 8));
+
+        assertThat(summary.weekStart()).isEqualTo(LocalDate.of(2026, 7, 20));
+        assertThat(summary.currentWeek()).isTrue();
+    }
+
+    @Test
+    void futureDateWithinCurrentWeekStillNormalizesToCurrentMonday() {
+        Clock wednesday = Clock.fixed(Instant.parse("2026-07-22T18:00:00Z"), ZoneOffset.UTC);
+        WeeklyNutritionSummaryService wednesdayService = new WeeklyNutritionSummaryService(
+                foodEntryService,
+                nutritionGoalService,
+                wednesday
+        );
+
+        WeeklyNutritionSummaryResponse summary = wednesdayService.getSummary(LocalDate.of(2026, 7, 24));
 
         assertThat(summary.weekStart()).isEqualTo(LocalDate.of(2026, 7, 20));
         assertThat(summary.currentWeek()).isTrue();
@@ -99,6 +118,38 @@ class WeeklyNutritionSummaryServiceTest {
         assertThat(summary.nutrientProgress().getFirst().percentage()).isEqualByComparingTo("112");
         assertThat(summary.nutrientProgress().get(1).dailyAverage()).isEqualByComparingTo("120.0");
         assertThat(summary.nutrientProgress().get(1).percentage()).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void calculatesProgressFromExactAverageBeforeDisplayRounding() {
+        stubEntries(List.of(entry("Non-divisible", "2026-07-20T08:00:00", "703.43", "70.28", "0", "0")));
+        nutritionGoalService.goal = Optional.of(goal("30", "3", "1", "1"));
+
+        WeeklyNutritionSummaryResponse summary = service.getSummary(LocalDate.of(2026, 7, 20));
+
+        WeeklyNutrientProgressResponse calories = summary.nutrientProgress().getFirst();
+        assertThat(calories.dailyAverage()).isEqualByComparingTo("100");
+        assertThat(calories.percentage()).isEqualByComparingTo("335");
+
+        WeeklyNutrientProgressResponse protein = summary.nutrientProgress().get(1);
+        assertThat(protein.dailyAverage()).isEqualByComparingTo("10.0");
+        assertThat(protein.percentage()).isEqualByComparingTo("335");
+    }
+
+    @Test
+    void handlesEachNutrientGoalIndependently() {
+        stubEntries(List.of(entry("Entry", "2026-07-20T08:00:00", "700", "70", "140", "35")));
+        nutritionGoalService.goal = Optional.of(goal("100", null, "0", "5"));
+
+        WeeklyNutritionSummaryResponse summary = service.getSummary(LocalDate.of(2026, 7, 20));
+
+        assertThat(summary.nutrientProgress().get(0).percentage()).isEqualByComparingTo("100");
+        assertThat(summary.nutrientProgress().get(0).dailyGoal()).isEqualByComparingTo("100");
+        assertThat(summary.nutrientProgress().get(1).dailyGoal()).isNull();
+        assertThat(summary.nutrientProgress().get(1).percentage()).isNull();
+        assertThat(summary.nutrientProgress().get(2).dailyGoal()).isNull();
+        assertThat(summary.nutrientProgress().get(2).percentage()).isNull();
+        assertThat(summary.nutrientProgress().get(3).percentage()).isEqualByComparingTo("100");
     }
 
     @Test
@@ -161,10 +212,14 @@ class WeeklyNutritionSummaryServiceTest {
 
     private NutritionGoalResponse goal(String calories, String protein, String carbohydrate, String fat) {
         return new NutritionGoalResponse(
-                1L, 1L, new BigDecimal(calories), new BigDecimal(protein),
-                new BigDecimal(carbohydrate), new BigDecimal(fat),
+                1L, 1L, decimal(calories), decimal(protein),
+                decimal(carbohydrate), decimal(fat),
                 LocalDateTime.of(2026, 7, 1, 9, 0), LocalDateTime.of(2026, 7, 1, 9, 0)
         );
+    }
+
+    private BigDecimal decimal(String value) {
+        return value == null ? null : new BigDecimal(value);
     }
 
     private static final class StubFoodEntryService extends FoodEntryService {

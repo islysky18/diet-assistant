@@ -75,12 +75,12 @@ public class WeeklyNutritionSummaryService {
             ));
         }
 
-        BigDecimal averageCalories = average(weeklyTotals.calories(), 0);
+        BigDecimal averageCalories = displayAverage(weeklyTotals.calories(), 0);
         List<WeeklyNutrientProgressResponse> progress = List.of(
-                nutrient("Calories", averageCalories, goal.map(NutritionGoalResponse::dailyCalories), "kcal"),
-                nutrient("Protein", average(weeklyTotals.proteinGrams(), 1), goal.map(NutritionGoalResponse::dailyProteinGrams), "g"),
-                nutrient("Carbohydrates", average(weeklyTotals.carbohydrateGrams(), 1), goal.map(NutritionGoalResponse::dailyCarbohydrateGrams), "g"),
-                nutrient("Fat", average(weeklyTotals.fatGrams(), 1), goal.map(NutritionGoalResponse::dailyFatGrams), "g")
+                nutrient("Calories", weeklyTotals.calories(), goal.map(NutritionGoalResponse::dailyCalories), "kcal", 0),
+                nutrient("Protein", weeklyTotals.proteinGrams(), goal.map(NutritionGoalResponse::dailyProteinGrams), "g", 1),
+                nutrient("Carbohydrates", weeklyTotals.carbohydrateGrams(), goal.map(NutritionGoalResponse::dailyCarbohydrateGrams), "g", 1),
+                nutrient("Fat", weeklyTotals.fatGrams(), goal.map(NutritionGoalResponse::dailyFatGrams), "g", 1)
         );
 
         boolean currentWeek = weekStart.equals(currentWeekStart);
@@ -107,18 +107,26 @@ public class WeeklyNutritionSummaryService {
 
     private WeeklyNutrientProgressResponse nutrient(
             String name,
-            BigDecimal average,
+            BigDecimal weeklyTotal,
             Optional<BigDecimal> goal,
-            String unit
+            String unit,
+            int displayScale
     ) {
         BigDecimal goalValue = goal.filter(value -> value.signum() > 0).orElse(null);
         BigDecimal percentage = goalValue == null
                 ? null
-                : average.multiply(ONE_HUNDRED).divide(goalValue, 0, RoundingMode.HALF_UP);
-        return new WeeklyNutrientProgressResponse(name, average, goalValue, percentage, unit);
+                : weeklyTotal.multiply(ONE_HUNDRED)
+                        .divide(DAYS_IN_WEEK.multiply(goalValue), 0, RoundingMode.HALF_UP);
+        return new WeeklyNutrientProgressResponse(
+                name,
+                displayAverage(weeklyTotal, displayScale),
+                goalValue,
+                percentage,
+                unit
+        );
     }
 
-    private BigDecimal average(BigDecimal total, int scale) {
+    private BigDecimal displayAverage(BigDecimal total, int scale) {
         return total.divide(DAYS_IN_WEEK, scale, RoundingMode.HALF_UP);
     }
 

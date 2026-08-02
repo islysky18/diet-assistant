@@ -2,6 +2,8 @@ package com.chaoting.dietassistant.nutrition;
 
 import com.chaoting.dietassistant.profile.ProfileRequest;
 import com.chaoting.dietassistant.profile.ProfileService;
+import com.chaoting.dietassistant.food.FoodEntryResponse;
+import com.chaoting.dietassistant.food.FoodEntryService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -41,6 +45,12 @@ class WeeklyNutritionSummaryIntegrationTest {
 
     @Autowired
     private ProfileService profileService;
+
+    @Autowired
+    private FoodEntryService foodEntryService;
+
+    @Autowired
+    private NutritionGoalService nutritionGoalService;
 
     private HttpClient httpClient;
     private Long profileId;
@@ -119,6 +129,46 @@ class WeeklyNutritionSummaryIntegrationTest {
         assertThat(response.body()).doesNotContain("9999 kcal", "Foreign profile");
     }
 
+    @Test
+    void databaseRangeIncludesMondayAndSundayButExcludesAdjacentWeeksAndOtherProfiles() {
+        LocalDate monday = LocalDate.of(2026, 7, 20);
+        insertFoodEntry(profileId, monday.minusDays(1).atTime(23, 59, 59), "10", "1", "1", "1", "Previous Sunday");
+        insertFoodEntry(profileId, monday.atStartOfDay(), "20", "2", "2", "2", "Included Monday");
+        insertFoodEntry(profileId, monday.plusDays(6).atTime(23, 59, 59), "30", "3", "3", "3", "Included Sunday");
+        insertFoodEntry(profileId, monday.plusWeeks(1).atStartOfDay(), "40", "4", "4", "4", "Next Monday");
+        insertForeignProfileEntry(monday.plusDays(2).atTime(12, 0), "Foreign profile");
+
+        List<FoodEntryResponse> entries = foodEntryService.listEntriesForDateRange(monday, monday.plusWeeks(1));
+
+        assertThat(entries).extracting(FoodEntryResponse::foodName)
+                .containsExactlyInAnyOrder("Included Monday", "Included Sunday");
+    }
+
+    @Test
+    void currentProfileGoalIsIsolatedFromForeignProfileGoal() {
+        insertGoal("2000", "120", "250", "70");
+        insertForeignProfileGoal();
+
+        assertThat(nutritionGoalService.getCurrentGoal()).get()
+                .extracting(NutritionGoalResponse::dailyCalories)
+                .isEqualTo(new BigDecimal("2000.00"));
+
+        jdbcTemplate.update("DELETE FROM nutrition_goals WHERE profile_id = ?", profileId);
+
+        assertThat(nutritionGoalService.getCurrentGoal()).isEmpty();
+    }
+
+    @Test
+    void currentWeekNextWeekIsDisabledWithoutHref() throws Exception {
+        HttpResponse<String> response = get("/nutrition-summary");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(Pattern.compile("<span[^>]*aria-disabled=\"true\"[^>]*>Next Week</span>")
+                .matcher(response.body()).find()).isTrue();
+        assertThat(Pattern.compile("<a[^>]*href=[^>]*>Next Week</a>")
+                .matcher(response.body()).find()).isFalse();
+    }
+
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
         return httpClient.send(
                 HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).GET().build(),
@@ -147,29 +197,59 @@ class WeeklyNutritionSummaryIntegrationTest {
             String carbohydrate,
             String fat
     ) {
+        insertFoodEntry(ownerProfileId, eatenAt, calories, protein, carbohydrate, fat, "Test food");
+    }
+
+    private void insertFoodEntry(
+            Long ownerProfileId,
+            LocalDateTime eatenAt,
+            String calories,
+            String protein,
+            String carbohydrate,
+            String fat,
+            String foodName
+    ) {
         jdbcTemplate.update("""
                 INSERT INTO food_entries (
                     profile_id, food_name, amount, unit, calories, protein_grams,
                     carbohydrate_grams, fat_grams, fiber_grams, meal_type, eaten_at, created_at
                 ) VALUES (?, ?, 1, 'serving', ?, ?, ?, ?, 0, 'BREAKFAST', ?, ?)
                 """,
-                ownerProfileId, "Test food", new BigDecimal(calories), new BigDecimal(protein),
+                ownerProfileId, foodName, new BigDecimal(calories), new BigDecimal(protein),
                 new BigDecimal(carbohydrate), new BigDecimal(fat), eatenAt, eatenAt
         );
     }
 
     private void insertForeignProfileEntry() {
+        insertForeignProfileEntry(LocalDateTime.of(2026, 7, 21, 9, 0), "Foreign profile");
+    }
+
+    private void insertForeignProfileEntry(LocalDateTime eatenAt, String foodName) {
         jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
         try {
             insertFoodEntry(
                     999L,
-                    LocalDateTime.of(2026, 7, 21, 9, 0),
+                    eatenAt,
                     "9999",
                     "999",
                     "999",
-                    "999"
+                    "999",
+                    foodName
             );
-            jdbcTemplate.update("UPDATE food_entries SET food_name = 'Foreign profile' WHERE profile_id = 999");
+        } finally {
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
+        }
+    }
+
+    private void insertForeignProfileGoal() {
+        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO nutrition_goals (
+                        profile_id, daily_calories, daily_protein_grams,
+                        daily_carbohydrate_grams, daily_fat_grams, created_at, updated_at
+                    ) VALUES (999, 9999, 999, 999, 999, ?, ?)
+                    """, LocalDateTime.now(), LocalDateTime.now());
         } finally {
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
         }
