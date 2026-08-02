@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Weekly Nutrition Summary')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('weekly-summary')}"></header>
+
+<main class="page-shell">
+    <div class="page-heading">
+        <div>
+            <p class="page-heading__eyebrow">Weekly overview</p>
+            <h1>Weekly Nutrition Summary</h1>
+            <p class="page-heading__description">Review your nutrition from Monday through Sunday.</p>
+        </div>
+        <nav class="date-nav page-heading__actions" aria-label="Week navigation">
+            <a class="button button--secondary button--small"
+               th:href="@{/nutrition-summary(weekStart=${summary.previousWeekStart})}">Previous Week</a>
+            <a class="button button--secondary button--small" th:href="@{/nutrition-summary}">This Week</a>
+            <a class="button button--secondary button--small"
+               th:if="${!summary.currentWeek}"
+               th:href="@{/nutrition-summary(weekStart=${summary.nextWeekStart})}">Next Week</a>
+            <span class="button button--secondary button--small button--disabled"
+                  th:if="${summary.currentWeek}" aria-disabled="true">Next Week</span>
+        </nav>
+    </div>
+
+    <p class="alert alert--info" th:if="${weekWarning}" th:text="${weekWarning}"></p>
+    <p class="summary-range" th:text="${summary.dateRangeLabel}"></p>
+
+    <div class="stack">
+        <section class="card">
+            <div class="section-heading"><h2>Weekly Overview</h2></div>
+            <dl class="summary-metrics">
+                <div><dt>Days Logged</dt><dd th:text="${summary.daysLogged + ' of 7'}"></dd></div>
+                <div><dt>Food Entries</dt><dd th:text="${summary.foodEntryCount}"></dd></div>
+                <div><dt>Average Calories</dt><dd th:text="${summary.averageCalories + ' kcal/day'}"></dd></div>
+                <div><dt>Weekly Calories</dt><dd th:text="${summary.weeklyCalories + ' kcal'}"></dd></div>
+            </dl>
+        </section>
+
+        <section class="card empty-state" th:if="${summary.empty}">
+            <h2>No food entries recorded for this week.</h2>
+            <p>Record food entries to see your weekly nutrition summary.</p>
+            <a class="button" th:href="@{/food(date=${recordFoodDate})}">Record Food</a>
+        </section>
+
+        <section class="card" th:unless="${summary.empty}">
+            <div class="section-heading">
+                <h2>Nutrition vs Goals</h2>
+                <p>Compared with your current daily nutrition goals</p>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Nutrient</th><th>Daily Average</th><th>Daily Goal</th><th>Progress</th></tr></thead>
+                    <tbody>
+                    <tr th:each="nutrient : ${summary.nutrientProgress}">
+                        <td th:text="${nutrient.name}"></td>
+                        <td th:text="${nutrient.dailyAverage + ' ' + nutrient.unit}"></td>
+                        <td th:text="${nutrient.dailyGoal == null ? 'Not set' : nutrient.dailyGoal + ' ' + nutrient.unit}"></td>
+                        <td th:text="${nutrient.percentage == null ? 'Not set' : nutrient.percentage + '%'}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="section-heading"><h2>Daily Breakdown</h2></div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Day</th><th>Calories</th><th>Protein</th><th>Carbs</th><th>Fat</th><th>Status</th></tr></thead>
+                    <tbody>
+                    <tr th:each="day : ${summary.dailyBreakdown}">
+                        <td><a th:href="@{/food(date=${day.date})}"
+                               th:text="${day.dayName + ', ' + #temporals.format(day.date, 'MMM d')}"></a></td>
+                        <td th:text="${day.calories}"></td>
+                        <td th:text="${day.proteinGrams + ' g'}"></td>
+                        <td th:text="${day.carbohydrateGrams + ' g'}"></td>
+                        <td th:text="${day.fatGrams + ' g'}"></td>
+                        <td th:text="${day.logged ? 'Logged' : 'No entries'}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

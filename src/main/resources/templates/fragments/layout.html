@@ -40,6 +40,10 @@
                th:attr="aria-current=${activePage == 'nutrition' ? 'page' : null}"
                th:href="@{/nutrition-goals}">Goals</a>
             <a class="app-nav__link"
+               th:classappend="${activePage == 'weekly-summary'} ? ' app-nav__link--active'"
+               th:attr="aria-current=${activePage == 'weekly-summary' ? 'page' : null}"
+               th:href="@{/nutrition-summary}">Weekly Summary</a>
+            <a class="app-nav__link"
                th:classappend="${activePage == 'profile'} ? ' app-nav__link--active'"
                th:attr="aria-current=${activePage == 'profile' ? 'page' : null}"
                th:href="@{/profile}">Profile</a>

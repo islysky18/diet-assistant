@@ -131,6 +131,58 @@ button.button--small {
     font-size: 0.875rem;
 }
 
+.button--disabled,
+.button--disabled:hover {
+    color: var(--muted);
+    background: var(--surface-soft);
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.summary-range {
+    margin: -0.6rem 0 1.5rem;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.summary-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 0;
+}
+
+.summary-metrics div {
+    padding: 1rem;
+    border-radius: var(--radius-md);
+    background: var(--surface-soft);
+}
+
+.summary-metrics dt {
+    color: var(--muted);
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.summary-metrics dd {
+    margin: 0.35rem 0 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.empty-state {
+    text-align: center;
+}
+
+.empty-state h2 {
+    margin-top: 0;
+}
+
+.empty-state p {
+    color: var(--muted);
+}
+
 .app-header {
     position: sticky;
     z-index: 20;
@@ -627,6 +679,10 @@ tbody tr:not(.empty-row):hover td {
     .stat-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .summary-metrics {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 640px) {
@@ -647,7 +703,8 @@ tbody tr:not(.empty-row):hover td {
 
     .form-grid,
     .progress-grid,
-    .stat-grid {
+    .stat-grid,
+    .summary-metrics {
         grid-template-columns: 1fr;
     }
 

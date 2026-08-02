@@ -79,11 +79,16 @@ public class FoodEntryService {
 
     @Transactional(readOnly = true)
     public List<FoodEntryResponse> listEntriesForDate(LocalDate date) {
+        return listEntriesForDateRange(date, date.plusDays(1));
+    }
+
+    @Transactional(readOnly = true)
+    public List<FoodEntryResponse> listEntriesForDateRange(LocalDate startInclusive, LocalDate endExclusive) {
         return currentProfileProvider.getProfile()
                 .map(profile -> foodEntryRepository.findByProfileIdAndEatenAtGreaterThanEqualAndEatenAtLessThanOrderByEatenAtDescIdDesc(
                                 profile.id(),
-                                date.atStartOfDay(),
-                                date.plusDays(1).atStartOfDay()
+                                startInclusive.atStartOfDay(),
+                                endExclusive.atStartOfDay()
                         ).stream()
                         .map(this::toResponse)
                         .toList())
