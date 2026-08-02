@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -21,10 +22,12 @@ public class FoodEntryController {
 
     private final FoodEntryService foodEntryService;
     private final SavedFoodService savedFoodService;
+    private final Clock clock;
 
-    public FoodEntryController(FoodEntryService foodEntryService, SavedFoodService savedFoodService) {
+    public FoodEntryController(FoodEntryService foodEntryService, SavedFoodService savedFoodService, Clock clock) {
         this.foodEntryService = foodEntryService;
         this.savedFoodService = savedFoodService;
+        this.clock = clock;
     }
 
     @GetMapping("/food")
@@ -111,7 +114,7 @@ public class FoodEntryController {
 
     private void addFoodModelAttributes(Model model, LocalDate selectedDate) {
         List<FoodEntryResponse> foodEntries = foodEntryService.listEntriesForDate(selectedDate);
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         model.addAttribute("mealTypes", MealType.values());
         model.addAttribute("savedFoods", savedFoodService.listActiveSavedFoods());
         model.addAttribute("foodEntries", foodEntries);
@@ -131,13 +134,13 @@ public class FoodEntryController {
 
     private LocalDate parseSelectedDate(String date, Model model) {
         if (date == null || date.isBlank()) {
-            return LocalDate.now();
+            return LocalDate.now(clock);
         }
         try {
             return LocalDate.parse(date);
         } catch (DateTimeParseException exception) {
             model.addAttribute("dateWarning", "The requested date was invalid. Showing today instead.");
-            return LocalDate.now();
+            return LocalDate.now(clock);
         }
     }
 
@@ -149,11 +152,11 @@ public class FoodEntryController {
                 // Fall back to the submitted entry date.
             }
         }
-        return eatenAt == null ? LocalDate.now() : eatenAt.toLocalDate();
+        return eatenAt == null ? LocalDate.now(clock) : eatenAt.toLocalDate();
     }
 
     private String redirectToDate(LocalDate date) {
-        if (date.equals(LocalDate.now())) {
+        if (date.equals(LocalDate.now(clock))) {
             return "redirect:/food";
         }
         return "redirect:/food?date=" + date;

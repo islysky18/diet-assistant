@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -402,7 +403,7 @@ class FoodEntryIntegrationTest {
 
         assertThat(get("/food/999999/edit").statusCode()).isEqualTo(404);
         assertThat(post("/food/999999", foodEntryEditForm(
-                "1.00", "serving", "SNACK", LocalDateTime.now().minusMinutes(5), ""
+                "1.00", "serving", "SNACK", LocalDateTime.of(2026, 7, 31, 20, 0), ""
         )).statusCode()).isEqualTo(404);
     }
 
@@ -441,13 +442,15 @@ class FoodEntryIntegrationTest {
         SavedFood savedFood = saveSavedFood("Soup", "Kitchen", true);
         savedFood.setReferenceWeightGrams(null);
         savedFoodRepository.save(savedFood);
-        Map<String, String> formValues = foodEntryForm(savedFood.getId(), "0", "g", LocalDateTime.now().plusDays(1));
+        LocalDateTime futureEatenAt = LocalDateTime.now().plusDays(1).withSecond(0).withNano(0);
+        Map<String, String> formValues = foodEntryForm(savedFood.getId(), "0", "g", futureEatenAt);
 
         HttpResponse<String> response = post("/food", formValues);
 
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("must be greater than 0");
         assertThat(response.body()).contains("must be a date in the past or in the present");
+        assertThat(response.body()).contains("value=\"" + futureEatenAt + "\"");
         assertThat(foodEntryRepository.count()).isZero();
 
         formValues.put("amount", "1.00");
@@ -556,6 +559,69 @@ class FoodEntryIntegrationTest {
     }
 
     @Test
+    void createOnDifferentEatenDateThenEditMovesEntryWithoutDuplicate() throws IOException, InterruptedException {
+        LocalDate selectedDate = LocalDate.of(2026, 7, 31);
+        LocalDate originalEatenDate = LocalDate.of(2026, 7, 30);
+        SavedFood savedFood = saveSavedFood("Date move bread", "Bakery", true);
+        HttpClient redirectClient = HttpClient.newBuilder()
+                .cookieHandler(cookieManager)
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
+
+        HttpResponse<String> createResponse = post(
+                redirectClient,
+                "/food?date=" + selectedDate,
+                foodEntryForm(savedFood.getId(), "1.00", "slice", originalEatenDate.atTime(20, 0))
+        );
+
+        assertThat(createResponse.statusCode()).isBetween(300, 399);
+        URI createLocation = URI.create(createResponse.headers().firstValue("Location").orElseThrow());
+        assertThat(createLocation.getPath()).matches("/food(?:;jsessionid=[^/?;]+)?");
+        assertThat(createLocation.getQuery()).isEqualTo("date=" + originalEatenDate);
+        assertThat(get("/food?date=" + originalEatenDate).body()).contains("Date move bread", "Afternoon snack");
+        assertThat(get("/food?date=" + selectedDate).body()).doesNotContain("Afternoon snack");
+
+        FoodEntry entry = foodEntryRepository.findAll().getFirst();
+        HttpResponse<String> updateResponse = post(
+                redirectClient,
+                "/food/" + entry.getId(),
+                foodEntryEditForm("1.00", "slice", "DINNER", selectedDate.atTime(20, 0), "Moved")
+        );
+
+        assertThat(updateResponse.statusCode()).isBetween(300, 399);
+        URI updateLocation = URI.create(updateResponse.headers().firstValue("Location").orElseThrow());
+        assertThat(updateLocation.getPath()).matches("/food(?:;jsessionid=[^/?;]+)?");
+        assertThat(updateLocation.getQuery()).isEqualTo("date=" + selectedDate);
+        assertThat(get("/food?date=" + originalEatenDate).body()).doesNotContain("Moved");
+        assertThat(get("/food?date=" + selectedDate).body()).contains("Date move bread", "Moved");
+        assertThat(foodEntryRepository.count()).isEqualTo(1);
+        assertThat(foodEntryRepository.findById(entry.getId()).orElseThrow().getEatenAt())
+                .isEqualTo(selectedDate.atTime(20, 0));
+    }
+
+    @Test
+    void repositoryDateFilteringHandlesMonthAndYearBoundaries() {
+        Long profileId = profileService.getProfile().orElseThrow().id();
+        saveLegacyEntry("July end", "100.00", "1.00", "1.00", "1.00", "1.00",
+                LocalDateTime.of(2026, 7, 31, 23, 59));
+        saveLegacyEntry("August start", "100.00", "1.00", "1.00", "1.00", "1.00",
+                LocalDateTime.of(2026, 8, 1, 0, 0));
+        saveLegacyEntry("Year end", "100.00", "1.00", "1.00", "1.00", "1.00",
+                LocalDateTime.of(2026, 12, 31, 23, 59));
+        saveLegacyEntry("New year", "100.00", "1.00", "1.00", "1.00", "1.00",
+                LocalDateTime.of(2027, 1, 1, 0, 0));
+
+        assertThat(entriesForDate(profileId, LocalDate.of(2026, 7, 31)))
+                .extracting(FoodEntry::getFoodName).containsExactly("July end");
+        assertThat(entriesForDate(profileId, LocalDate.of(2026, 8, 1)))
+                .extracting(FoodEntry::getFoodName).containsExactly("August start");
+        assertThat(entriesForDate(profileId, LocalDate.of(2026, 12, 31)))
+                .extracting(FoodEntry::getFoodName).containsExactly("Year end");
+        assertThat(entriesForDate(profileId, LocalDate.of(2027, 1, 1)))
+                .extracting(FoodEntry::getFoodName).containsExactly("New year");
+    }
+
+    @Test
     void repositoryCurrentDayQueryUsesInclusiveStartAndExclusiveEnd() {
         Long profileId = profileService.getProfile().orElseThrow().id();
         LocalDate today = LocalDate.now();
@@ -571,6 +637,14 @@ class FoodEntryIntegrationTest {
         );
 
         assertThat(entries).extracting(FoodEntry::getFoodName).containsExactly("End minus one", "Start boundary");
+    }
+
+    private List<FoodEntry> entriesForDate(Long profileId, LocalDate date) {
+        return foodEntryRepository.findByProfileIdAndEatenAtGreaterThanEqualAndEatenAtLessThanOrderByEatenAtDescIdDesc(
+                profileId,
+                date.atStartOfDay(),
+                date.plusDays(1).atStartOfDay()
+        );
     }
 
     private void createProfile() {
