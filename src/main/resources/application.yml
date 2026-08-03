@@ -1,9 +1,31 @@
 spring:
   application:
     name: diet-assistant
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
   jpa:
     hibernate:
       ddl-auto: validate
     open-in-view: false
   flyway:
     enabled: true
+
+diet-assistant:
+  food-import:
+    pending-directory: ${DIET_ASSISTANT_PENDING_FOOD_IMPORT_DIRECTORY:data/pending-food-imports}
+    max-file-size-bytes: 10485760
+    expiration-hours: 24
+    imagemagick:
+      executable: ${DIET_ASSISTANT_IMAGEMAGICK_EXECUTABLE:magick}
+      timeout-seconds: 30
+    image:
+      max-width: 12000
+      max-height: 12000
+      max-pixels: 40000000
+      jpeg-quality: 95
+    recognizer:
+      enabled: ${DIET_ASSISTANT_FOOD_PHOTO_RECOGNIZER_ENABLED:true}
+      codex-executable: ${DIET_ASSISTANT_CODEX_EXECUTABLE:codex}
+      timeout-seconds: ${DIET_ASSISTANT_CODEX_TIMEOUT_SECONDS:300}

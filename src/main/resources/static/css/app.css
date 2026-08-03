@@ -58,6 +58,50 @@ textarea {
     font: inherit;
 }
 
+.command-block {
+    overflow-x: auto;
+    padding: 1rem;
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+    background: var(--surface-soft);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.processing-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin: 1rem 0;
+}
+
+.processing-status p {
+    margin: 0 0 0.35rem;
+}
+
+.spinner {
+    width: 1.4rem;
+    height: 1.4rem;
+    flex: 0 0 auto;
+    border: 3px solid rgba(31, 101, 83, 0.22);
+    border-top-color: var(--brand);
+    border-radius: 50%;
+    animation: spinner-rotate 800ms linear infinite;
+}
+
+.spinner--small {
+    width: 1rem;
+    height: 1rem;
+    border-width: 2px;
+}
+
+@keyframes spinner-rotate {
+    to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spinner { animation: none; }
+}
+
 button,
 .button {
     display: inline-flex;

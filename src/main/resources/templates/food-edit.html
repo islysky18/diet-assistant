@@ -43,27 +43,27 @@
             </div>
             <div class="form-field">
                 <label for="calories">Calories</label>
-                <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
+                <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01">
                 <p class="field-error" th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
             </div>
             <div class="form-field">
                 <label for="proteinGrams">Protein (g)</label>
-                <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
+                <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01">
                 <p class="field-error" th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
             </div>
             <div class="form-field">
                 <label for="carbohydrateGrams">Carbohydrates (g)</label>
-                <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
+                <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01">
                 <p class="field-error" th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
             </div>
             <div class="form-field">
                 <label for="fatGrams">Fat (g)</label>
-                <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
+                <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01">
                 <p class="field-error" th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
             </div>
             <div class="form-field">
                 <label for="fiberGrams">Fiber (g)</label>
-                <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
+                <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01">
                 <p class="field-error" th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
             </div>
             <div class="form-field form-field--full">

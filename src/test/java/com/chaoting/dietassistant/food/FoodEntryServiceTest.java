@@ -233,6 +233,48 @@ class FoodEntryServiceTest {
     }
 
     @Test
+    void createPreservesUnknownSavedFoodNutritionAndTotalsTreatUnknownAsZero() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        SavedFood savedFood = savedFood("Unknown", null, "1.00", "serving", null);
+        savedFood.setCalories(BigDecimal.ZERO);
+        savedFood.setProteinGrams(null);
+        savedFood.setCarbohydrateGrams(null);
+        savedFood.setFatGrams(null);
+        savedFood.setFiberGrams(null);
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood);
+        FoodEntryService foodEntryService = service(foodEntryRepository, savedFoodRepository);
+
+        FoodEntryResponse entry = foodEntryService.create(request(10L, "2.00", "serving", MealType.SNACK));
+        DailyNutritionTotalsResponse totals = foodEntryService.calculateTotals(List.of(entry));
+
+        assertThat(entry.calories()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(entry.proteinGrams()).isNull();
+        assertThat(entry.carbohydrateGrams()).isNull();
+        assertThat(entry.fatGrams()).isNull();
+        assertThat(entry.fiberGrams()).isNull();
+        assertThat(totals.calories()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(totals.proteinGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(totals.carbohydrateGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(totals.fatGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(totals.fiberGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(savedFood.getProteinGrams()).isNull();
+    }
+
+    @Test
+    void recalculationKeepsUnknownSnapshotNutritionNull() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry foodEntry = snapshotEntry();
+        foodEntry.setFiberGrams(null);
+        foodEntryRepository.entryByIdAndProfile = Optional.of(foodEntry);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        FoodEntryResponse updated = foodEntryService.update(42L, editRequest("2.00", "slice"));
+
+        assertThat(updated.fiberGrams()).isNull();
+    }
+
+    @Test
     void savedFoodEditsDoNotChangeCreatedEntrySnapshots() {
         FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
         FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
@@ -598,17 +640,21 @@ class FoodEntryServiceTest {
                 "Food",
                 new BigDecimal("1.00"),
                 "serving",
-                new BigDecimal(calories),
-                new BigDecimal(proteinGrams),
-                new BigDecimal(carbohydrateGrams),
-                new BigDecimal(fatGrams),
-                new BigDecimal(fiberGrams),
+                decimalOrNull(calories),
+                decimalOrNull(proteinGrams),
+                decimalOrNull(carbohydrateGrams),
+                decimalOrNull(fatGrams),
+                decimalOrNull(fiberGrams),
                 null,
                 MealType.SNACK,
                 LocalDateTime.of(2026, 6, 22, 12, 0),
                 null,
                 LocalDateTime.of(2026, 6, 22, 12, 0)
         );
+    }
+
+    private BigDecimal decimalOrNull(String value) {
+        return value == null ? null : new BigDecimal(value);
     }
 
     private static class FakeFoodEntryRepository {

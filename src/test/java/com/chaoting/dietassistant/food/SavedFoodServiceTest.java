@@ -24,6 +24,18 @@ class SavedFoodServiceTest {
     );
 
     @Test
+    void hasCurrentProfileReflectsCurrentProfileProvider() {
+        assertThat(service(new FakeSavedFoodRepository()).hasCurrentProfile()).isTrue();
+
+        SavedFoodService withoutProfile = new SavedFoodService(
+                new FakeSavedFoodRepository().proxy(),
+                Optional::empty,
+                FIXED_CLOCK
+        );
+        assertThat(withoutProfile.hasCurrentProfile()).isFalse();
+    }
+
+    @Test
     void createStoresSavedFoodForCurrentProfileAndTrimsText() {
         FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
         SavedFoodService savedFoodService = service(savedFoodRepository);
@@ -73,6 +85,31 @@ class SavedFoodServiceTest {
         assertThat(response.brand()).isNull();
         assertThat(response.referenceWeightGrams()).isNull();
         assertThat(response.notes()).isNull();
+    }
+
+    @Test
+    void createPreservesUnknownNutritionAsNullAndExplicitZeroAsZero() {
+        SavedFoodService savedFoodService = service(new FakeSavedFoodRepository());
+
+        SavedFoodResponse unknown = savedFoodService.create(request(
+                "Unknown nutrition", null, "1.00", "serving", null,
+                null, null, null, null, null, null
+        ));
+        SavedFoodResponse zero = savedFoodService.create(request(
+                "Confirmed zero", null, "1.00", "can", null,
+                "0", "0.00", "0", "0.0", "0.00", null
+        ));
+
+        assertThat(unknown.calories()).isNull();
+        assertThat(unknown.proteinGrams()).isNull();
+        assertThat(unknown.carbohydrateGrams()).isNull();
+        assertThat(unknown.fatGrams()).isNull();
+        assertThat(unknown.fiberGrams()).isNull();
+        assertThat(zero.calories()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(zero.proteinGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(zero.carbohydrateGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(zero.fatGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(zero.fiberGrams()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
@@ -234,13 +271,17 @@ class SavedFoodServiceTest {
         request.setReferenceAmount(new BigDecimal(referenceAmount));
         request.setReferenceUnit(referenceUnit);
         request.setReferenceWeightGrams(referenceWeightGrams == null ? null : new BigDecimal(referenceWeightGrams));
-        request.setCalories(new BigDecimal(calories));
-        request.setProteinGrams(new BigDecimal(proteinGrams));
-        request.setCarbohydrateGrams(new BigDecimal(carbohydrateGrams));
-        request.setFatGrams(new BigDecimal(fatGrams));
-        request.setFiberGrams(new BigDecimal(fiberGrams));
+        request.setCalories(decimalOrNull(calories));
+        request.setProteinGrams(decimalOrNull(proteinGrams));
+        request.setCarbohydrateGrams(decimalOrNull(carbohydrateGrams));
+        request.setFatGrams(decimalOrNull(fatGrams));
+        request.setFiberGrams(decimalOrNull(fiberGrams));
         request.setNotes(notes);
         return request;
+    }
+
+    private BigDecimal decimalOrNull(String value) {
+        return value == null ? null : new BigDecimal(value);
     }
 
     private ProfileResponse profile() {

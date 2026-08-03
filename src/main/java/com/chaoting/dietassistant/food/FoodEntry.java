@@ -50,19 +50,19 @@ class FoodEntry {
     @Column(name = "unit", nullable = false, length = 50)
     private String unit;
 
-    @Column(name = "calories", nullable = false, precision = 10, scale = 2)
+    @Column(name = "calories", precision = 10, scale = 2)
     private BigDecimal calories;
 
-    @Column(name = "protein_grams", nullable = false, precision = 10, scale = 2)
+    @Column(name = "protein_grams", precision = 10, scale = 2)
     private BigDecimal proteinGrams;
 
-    @Column(name = "carbohydrate_grams", nullable = false, precision = 10, scale = 2)
+    @Column(name = "carbohydrate_grams", precision = 10, scale = 2)
     private BigDecimal carbohydrateGrams;
 
-    @Column(name = "fat_grams", nullable = false, precision = 10, scale = 2)
+    @Column(name = "fat_grams", precision = 10, scale = 2)
     private BigDecimal fatGrams;
 
-    @Column(name = "fiber_grams", nullable = false, precision = 10, scale = 2)
+    @Column(name = "fiber_grams", precision = 10, scale = 2)
     private BigDecimal fiberGrams;
 
     @Column(name = "calculation_multiplier", precision = 18, scale = 8)

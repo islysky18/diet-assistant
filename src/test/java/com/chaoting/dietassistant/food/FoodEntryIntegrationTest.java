@@ -14,7 +14,10 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
 import java.math.BigDecimal;
 import java.net.CookieManager;
 import java.net.URI;
@@ -23,12 +26,14 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -131,6 +136,151 @@ class FoodEntryIntegrationTest {
         assertThat(deactivateResponse.body()).contains("Saved food deactivated.");
         assertThat(savedFoodRepository.findById(savedFood.getId()).orElseThrow().isActive()).isFalse();
         assertThat(get("/foods").body()).doesNotContain("Greek yogurt updated");
+    }
+
+    @Test
+    void photoImportDoesNotSaveUntilManualReviewIsConfirmedAndThenDeletesPendingFiles()
+            throws IOException, InterruptedException {
+        HttpResponse<String> uploadResponse = postMultipartNutritionPhoto();
+
+        assertThat(uploadResponse.statusCode()).isEqualTo(200);
+        assertThat(uploadResponse.body()).contains("Pending import", "Confirm and save food");
+        assertThat(savedFoodRepository.count()).isZero();
+        var matcher = Pattern.compile("Import ID: ([0-9a-f-]{36})").matcher(uploadResponse.body());
+        assertThat(matcher.find()).isTrue();
+        String importId = matcher.group(1);
+        Path importDirectory = Path.of("data/pending-food-imports", importId);
+        assertThat(importDirectory.resolve("nutrition-original.jpg")).exists();
+        assertThat(importDirectory.resolve("nutrition.jpg")).exists();
+        assertThat(importDirectory.resolve("metadata.json")).exists();
+
+        HttpResponse<String> confirmResponse = post(
+                "/foods/import/" + importId + "/confirm",
+                savedFoodForm("Imported oats", "Example Brand", "1.00", "serving", "40.00", "150.00")
+        );
+
+        assertThat(confirmResponse.statusCode()).isEqualTo(200);
+        assertThat(confirmResponse.body()).contains("Saved food created and pending photos deleted.", "Imported oats");
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+        assertThat(savedFoodRepository.findAll().getFirst().getProfileId())
+                .isEqualTo(profileService.getProfile().orElseThrow().id());
+        assertThat(importDirectory).doesNotExist();
+    }
+
+    @Test
+    void manualSavedFoodAllowsAllOptionalNutritionToRemainUnknown() throws IOException, InterruptedException {
+        Map<String, String> form = savedFoodForm("Unknown food", "", "1.00", "serving", "", "");
+        form.put("proteinGrams", "");
+        form.put("carbohydrateGrams", "");
+        form.put("fatGrams", "");
+        form.put("fiberGrams", "");
+        form.put("notes", "");
+
+        HttpResponse<String> response = post("/foods", form);
+
+        assertThat(response.body()).contains("Saved food created.");
+        SavedFood saved = savedFoodRepository.findAll().getFirst();
+        assertThat(saved.getBrand()).isNull();
+        assertThat(saved.getReferenceWeightGrams()).isNull();
+        assertThat(saved.getCalories()).isNull();
+        assertThat(saved.getProteinGrams()).isNull();
+        assertThat(saved.getCarbohydrateGrams()).isNull();
+        assertThat(saved.getFatGrams()).isNull();
+        assertThat(saved.getFiberGrams()).isNull();
+        assertThat(saved.getNotes()).isNull();
+    }
+
+    @Test
+    void manualSavedFoodPreservesExplicitZerosAndLegalDecimals() throws IOException, InterruptedException {
+        Map<String, String> zeroForm = savedFoodForm("Zero drink", "Brand", "1.00", "can", "", "0");
+        zeroForm.put("proteinGrams", "0.00");
+        zeroForm.put("carbohydrateGrams", "0");
+        zeroForm.put("fatGrams", "0.0");
+        zeroForm.put("fiberGrams", "0.00");
+        post("/foods", zeroForm);
+
+        Map<String, String> decimalForm = savedFoodForm("Decimal food", "Brand", "1.25", "serving", "42.50", "123.45");
+        decimalForm.put("proteinGrams", "6.75");
+        decimalForm.put("carbohydrateGrams", "20.50");
+        decimalForm.put("fatGrams", "3.25");
+        decimalForm.put("fiberGrams", "1.50");
+        post("/foods", decimalForm);
+
+        SavedFood zero = savedFoodRepository.findAll().stream().filter(food -> food.getName().equals("Zero drink")).findFirst().orElseThrow();
+        assertThat(List.of(zero.getCalories(), zero.getProteinGrams(), zero.getCarbohydrateGrams(), zero.getFatGrams(), zero.getFiberGrams()))
+                .allSatisfy(value -> assertThat(value).isEqualByComparingTo(BigDecimal.ZERO));
+        SavedFood decimal = savedFoodRepository.findAll().stream().filter(food -> food.getName().equals("Decimal food")).findFirst().orElseThrow();
+        assertThat(decimal.getReferenceWeightGrams()).isEqualByComparingTo("42.50");
+        assertThat(decimal.getCalories()).isEqualByComparingTo("123.45");
+        assertThat(decimal.getProteinGrams()).isEqualByComparingTo("6.75");
+        assertThat(decimal.getCarbohydrateGrams()).isEqualByComparingTo("20.50");
+        assertThat(decimal.getFatGrams()).isEqualByComparingTo("3.25");
+        assertThat(decimal.getFiberGrams()).isEqualByComparingTo("1.50");
+    }
+
+    @Test
+    void invalidOptionalNutritionPreservesImportAndEditedFormWithoutSaving() throws IOException, InterruptedException {
+        String importId = importId(postMultipartNutritionPhoto().body());
+        Path importDirectory = Path.of("data/pending-food-imports", importId);
+        Map<String, String> form = savedFoodForm("Edited Diet Coke", "Coca-Cola", "1.00", "can", "", "0");
+        form.put("proteinGrams", "-1");
+        form.put("fiberGrams", "not-a-number");
+
+        HttpResponse<String> response = post("/foods/import/" + importId + "/confirm", form);
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains(
+                "Edited Diet Coke",
+                "value=\"20.00\"",
+                "Failed to convert property value"
+        );
+        assertThat(savedFoodRepository.count()).isZero();
+        assertThat(importDirectory.resolve("metadata.json")).exists();
+        assertThat(importDirectory.resolve("nutrition.jpg")).exists();
+
+        post("/foods/import/" + importId + "/cancel", Map.of());
+    }
+
+    @Test
+    void dietCokeImportPreservesUnknownAndZeroValuesAndRepeatedConfirmIsIdempotent()
+            throws IOException, InterruptedException {
+        String importId = importId(postMultipartNutritionPhoto().body());
+        Path importDirectory = Path.of("data/pending-food-imports", importId);
+        Map<String, String> form = savedFoodForm("Diet Coke", "Coca-Cola", "1", "can", "", "0");
+        form.put("proteinGrams", "0");
+        form.put("carbohydrateGrams", "0");
+        form.put("fatGrams", "0");
+        form.put("fiberGrams", "");
+
+        post("/foods/import/" + importId + "/confirm", form);
+        post("/foods/import/" + importId + "/confirm", form);
+
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+        SavedFood saved = savedFoodRepository.findAll().getFirst();
+        assertThat(saved.getCalories()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(saved.getProteinGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(saved.getCarbohydrateGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(saved.getFatGrams()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(saved.getFiberGrams()).isNull();
+        assertThat(saved.getReferenceWeightGrams()).isNull();
+        assertThat(importDirectory).doesNotExist();
+    }
+
+    @Test
+    void requiredSavedFoodFieldsRemainRequiredAndNegativeNutritionIsRejected() throws IOException, InterruptedException {
+        Map<String, String> missingRequired = savedFoodForm("", "Brand", "", "", "", "");
+        HttpResponse<String> missingResponse = post("/foods", missingRequired);
+        assertThat(missingResponse.body()).contains("must not be blank", "must not be null");
+
+        Map<String, String> negative = savedFoodForm("Negative", "Brand", "1", "serving", "", "-1");
+        negative.put("proteinGrams", "-1");
+        negative.put("carbohydrateGrams", "-1");
+        negative.put("fatGrams", "-1");
+        negative.put("fiberGrams", "-1");
+        HttpResponse<String> negativeResponse = post("/foods", negative);
+
+        assertThat(negativeResponse.body()).contains("must be greater than or equal to 0");
+        assertThat(savedFoodRepository.count()).isZero();
     }
 
     @Test
@@ -237,6 +387,37 @@ class FoodEntryIntegrationTest {
         assertThat(deleteResponse.statusCode()).isEqualTo(200);
         assertThat(deleteResponse.body()).contains("Food entry deleted.");
         assertThat(foodEntryRepository.count()).isZero();
+    }
+
+    @Test
+    void foodEntryAndSummariesHandleNullableSavedFoodNutritionWithoutChangingIt()
+            throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Unknown nutrition", "Brand", true);
+        savedFood.setCalories(BigDecimal.ZERO);
+        savedFood.setProteinGrams(null);
+        savedFood.setCarbohydrateGrams(null);
+        savedFood.setFatGrams(null);
+        savedFood.setFiberGrams(null);
+        savedFoodRepository.save(savedFood);
+
+        HttpResponse<String> createResponse = post("/food", foodEntryForm(
+                savedFood.getId(), "2.00", "slice", LocalDateTime.now().minusMinutes(5)
+        ));
+        HttpResponse<String> dailyResponse = get("/food");
+        HttpResponse<String> weeklyResponse = get("/nutrition-summary");
+
+        assertThat(createResponse.body()).contains("Food entry saved.");
+        FoodEntry entry = foodEntryRepository.findAll().getFirst();
+        assertThat(entry.getCalories()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(entry.getProteinGrams()).isNull();
+        assertThat(entry.getCarbohydrateGrams()).isNull();
+        assertThat(entry.getFatGrams()).isNull();
+        assertThat(entry.getFiberGrams()).isNull();
+        assertThat(dailyResponse.statusCode()).isEqualTo(200);
+        assertThat(weeklyResponse.statusCode()).isEqualTo(200);
+        SavedFood unchanged = savedFoodRepository.findById(savedFood.getId()).orElseThrow();
+        assertThat(unchanged.getProteinGrams()).isNull();
+        assertThat(unchanged.getFiberGrams()).isNull();
     }
 
     @Test
@@ -798,6 +979,12 @@ class FoodEntryIntegrationTest {
         return formValues;
     }
 
+    private String importId(String responseBody) {
+        var matcher = Pattern.compile("Import ID: ([0-9a-f-]{36})").matcher(responseBody);
+        assertThat(matcher.find()).isTrue();
+        return matcher.group(1);
+    }
+
     private Map<String, String> invalidSavedFoodForm() {
         return savedFoodForm(
                 "",
@@ -857,6 +1044,23 @@ class FoodEntryIntegrationTest {
                 .POST(HttpRequest.BodyPublishers.ofString(formBody(formValues)))
                 .build();
         return client.send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> postMultipartNutritionPhoto() throws IOException, InterruptedException {
+        String boundary = "DietAssistantBoundary";
+        ByteArrayOutputStream body = new ByteArrayOutputStream();
+        body.write(("--" + boundary + "\r\n").getBytes(StandardCharsets.UTF_8));
+        body.write("Content-Disposition: form-data; name=\"nutritionFactsPhoto\"; filename=\"facts.jpg\"\r\n".getBytes(StandardCharsets.UTF_8));
+        body.write("Content-Type: image/jpeg\r\n\r\n".getBytes(StandardCharsets.UTF_8));
+        BufferedImage image = new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB);
+        image.setRGB(0, 0, 0x4b7bec);
+        ImageIO.write(image, "jpeg", body);
+        body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+        HttpRequest request = HttpRequest.newBuilder(uri("/foods/import"))
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))
+                .build();
+        return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private URI uri(String path) {

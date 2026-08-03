@@ -11,6 +11,7 @@
             <h1>Foods</h1>
             <p class="page-heading__description">Keep trusted serving and nutrition data here so every meal entry is calculated consistently.</p>
         </div>
+        <a class="button" th:href="@{/foods/import}">Import Product</a>
     </div>
 
     <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
@@ -50,27 +51,27 @@
                 </div>
                 <div class="form-field">
                     <label for="calories">Calories</label>
-                    <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01" required>
+                    <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01">
                     <p class="field-error" th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
                 </div>
                 <div class="form-field">
                     <label for="proteinGrams">Protein (g)</label>
-                    <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01" required>
+                    <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01">
                     <p class="field-error" th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
                 </div>
                 <div class="form-field">
                     <label for="carbohydrateGrams">Carbohydrates (g)</label>
-                    <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01" required>
+                    <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01">
                     <p class="field-error" th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
                 </div>
                 <div class="form-field">
                     <label for="fatGrams">Fat (g)</label>
-                    <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01" required>
+                    <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01">
                     <p class="field-error" th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
                 </div>
                 <div class="form-field">
                     <label for="fiberGrams">Fiber (g)</label>
-                    <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01" required>
+                    <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01">
                     <p class="field-error" th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
                 </div>
                 <div class="form-field form-field--full">
@@ -133,11 +134,11 @@
                         <td th:text="${savedFood.active ? 'Active' : 'Inactive'}"></td>
                         <td th:text="${savedFood.referenceServing}"></td>
                         <td th:text="${savedFood.referenceWeightGrams != null ? savedFood.referenceWeightGrams + ' g' : ''}"></td>
-                        <td th:text="${savedFood.calories}"></td>
-                        <td th:text="${savedFood.proteinGrams}"></td>
-                        <td th:text="${savedFood.carbohydrateGrams}"></td>
-                        <td th:text="${savedFood.fatGrams}"></td>
-                        <td th:text="${savedFood.fiberGrams}"></td>
+                        <td th:text="${savedFood.calories != null ? savedFood.calories : ''}"></td>
+                        <td th:text="${savedFood.proteinGrams != null ? savedFood.proteinGrams : ''}"></td>
+                        <td th:text="${savedFood.carbohydrateGrams != null ? savedFood.carbohydrateGrams : ''}"></td>
+                        <td th:text="${savedFood.fatGrams != null ? savedFood.fatGrams : ''}"></td>
+                        <td th:text="${savedFood.fiberGrams != null ? savedFood.fiberGrams : ''}"></td>
                         <td th:text="${savedFood.notes} ?: ''"></td>
                         <td>
                             <div class="table-actions">

@@ -31,27 +31,22 @@ public class SavedFoodRequest {
     @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal referenceWeightGrams;
 
-    @NotNull
     @PositiveOrZero
     @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal calories;
 
-    @NotNull
     @PositiveOrZero
     @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal proteinGrams;
 
-    @NotNull
     @PositiveOrZero
     @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal carbohydrateGrams;
 
-    @NotNull
     @PositiveOrZero
     @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal fatGrams;
 
-    @NotNull
     @PositiveOrZero
     @Digits(integer = 8, fraction = 2, message = "must have up to 8 digits before the decimal and 2 after")
     private BigDecimal fiberGrams;
