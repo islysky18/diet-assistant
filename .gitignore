@@ -28,6 +28,7 @@ docker-data/
 data/
 mysql-data/
 postgres-data/
+data/pending-food-imports/
 *.db
 *.sqlite
 *.sqlite3

@@ -1,0 +1,8 @@
+.git
+.idea
+data
+target
+docker-data
+mysql-data
+postgres-data
+*.log

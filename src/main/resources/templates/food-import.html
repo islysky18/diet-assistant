@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Import product')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('foods')}"></header>
+
+<main class="page-shell page-shell--narrow">
+    <div class="page-heading">
+        <div>
+            <p class="page-heading__eyebrow">Food library</p>
+            <h1>Import Product</h1>
+            <p class="page-heading__description">Upload one product at a time. Nothing is added to your food library until you review and confirm the form.</p>
+        </div>
+    </div>
+
+    <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
+    <p class="alert alert--error" th:if="${uploadError}" th:text="${uploadError}"></p>
+
+    <section class="card" th:if="${pendingImport == null}">
+        <div class="section-heading">
+            <h2>Upload product photos</h2>
+            <p>JPG, JPEG, PNG, HEIC, or HEIF; maximum 10 MB per photo</p>
+        </div>
+        <p class="alert alert--error" th:if="${imageRuntime != null and !imageRuntime.normalizationAvailable}" th:text="${imageRuntime.message}"></p>
+        <p class="alert alert--error" th:if="${imageRuntime != null and imageRuntime.normalizationAvailable and !imageRuntime.heicReadAvailable}" th:text="${imageRuntime.message}"></p>
+        <form class="form-grid js-loading-form" th:action="@{/foods/import}" th:object="${photoUploadRequest}" method="post" enctype="multipart/form-data">
+            <p class="field-error form-field--full" th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}"></p>
+            <div class="form-field form-field--full">
+                <label for="frontPhoto">Front Photo <span class="field-hint">(optional)</span></label>
+                <input id="frontPhoto" type="file" th:field="*{frontPhoto}" accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif" th:disabled="${imageRuntime != null and !imageRuntime.normalizationAvailable}">
+                <p class="field-hint">Helps Codex identify the food name and brand.</p>
+                <p class="field-error" th:if="${#fields.hasErrors('frontPhoto')}" th:errors="*{frontPhoto}"></p>
+            </div>
+            <div class="form-field form-field--full">
+                <label for="nutritionFactsPhoto">Nutrition Facts Photo</label>
+                <input id="nutritionFactsPhoto" type="file" th:field="*{nutritionFactsPhoto}" accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif" required th:disabled="${imageRuntime != null and !imageRuntime.normalizationAvailable}">
+                <p class="field-hint">Required. Make the serving size and nutrient values readable.</p>
+                <p class="field-error" th:if="${#fields.hasErrors('nutritionFactsPhoto')}" th:errors="*{nutritionFactsPhoto}"></p>
+            </div>
+            <div class="form-actions">
+                <button type="submit" data-loading-label="Processing..." th:disabled="${imageRuntime != null and !imageRuntime.normalizationAvailable}">Create pending import</button>
+                <a class="button button--secondary" th:href="@{/foods}">Cancel</a>
+            </div>
+        </form>
+    </section>
+
+    <div class="stack" th:if="${pendingImport != null}">
+        <section class="card">
+            <div class="section-heading">
+                <h2>Pending import</h2>
+                <p th:text="${'Status: ' + pendingImport.status}"></p>
+            </div>
+            <p th:if="${pendingImport.status == 'pending'}">Automatic recognition is queued. Use Refresh Status to check its status.</p>
+            <div class="processing-status"
+                 role="status"
+                 aria-live="polite"
+                 th:if="${pendingImport.status == 'processing'}"
+                 th:attr="data-status-url=@{/foods/import/{id}/status(id=${pendingImport.importId})},data-review-url=@{/foods/import/{id}(id=${pendingImport.importId})},data-poll-interval-ms=2500,data-poll-limit-ms=300000">
+                <span class="spinner" aria-hidden="true"></span>
+                <div>
+                    <p class="processing-status__message">Photos are being analyzed. This usually takes a few seconds.</p>
+                    <p class="field-hint">You can stay on this page. The review form will appear automatically when analysis finishes.</p>
+                </div>
+            </div>
+            <p th:if="${pendingImport.status == 'ready_for_review'}">Automatic recognition is ready. Review every value before saving.</p>
+            <p th:if="${pendingImport.status == 'recognition_failed' or pendingImport.status == 'recognition_timed_out'}">Automatic recognition did not complete. You may retry, use the local fallback command, or complete the form manually.</p>
+            <pre class="command-block" th:if="${pendingImport.status == 'recognition_failed' or pendingImport.status == 'recognition_timed_out'}" th:text="${'./scripts/prepare-food-import.sh ' + pendingImport.importId}"></pre>
+            <p class="field-hint" th:text="${'Import ID: ' + pendingImport.importId}"></p>
+            <p class="field-hint" th:text="${'Temporary files expire after: ' + pendingImport.expiresAt}"></p>
+            <p class="alert alert--error" th:if="${pendingImport.resultError}" th:text="${pendingImport.resultError}"></p>
+            <div class="form-actions">
+                <a class="button button--secondary" th:href="@{/foods/import/{id}(id=${pendingImport.importId})}">Refresh Status</a>
+                <form class="js-loading-form" th:if="${pendingImport.status == 'recognition_failed' or pendingImport.status == 'recognition_timed_out'}" th:action="@{/foods/import/{id}/retry(id=${pendingImport.importId})}" method="post">
+                    <button class="button--secondary" type="submit" data-loading-label="Processing...">Retry automatic recognition</button>
+                </form>
+                <form th:action="@{/foods/import/{id}/cancel(id=${pendingImport.importId})}" method="post">
+                    <button class="button--danger" type="submit">Cancel import and delete files</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="card" th:if="${pendingImport.status == 'pending' or pendingImport.status == 'ready_for_review' or pendingImport.status == 'recognition_failed' or pendingImport.status == 'recognition_timed_out'}">
+            <div class="section-heading">
+                <h2>Review and confirm</h2>
+                <p th:text="${pendingImport.resultAvailable ? 'Codex result loaded. Verify every value before saving.' : 'No valid result loaded yet. You may complete every field manually.'}"></p>
+            </div>
+            <form class="form-grid" th:action="@{/foods/import/{id}/confirm(id=${pendingImport.importId})}" th:object="${savedFoodRequest}" method="post">
+                <div class="form-field">
+                    <label for="name">Food name</label>
+                    <input id="name" type="text" th:field="*{name}" maxlength="255" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('name')}" th:errors="*{name}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="brand">Brand</label>
+                    <input id="brand" type="text" th:field="*{brand}" maxlength="255">
+                    <p class="field-error" th:if="${#fields.hasErrors('brand')}" th:errors="*{brand}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="referenceAmount">Serving amount</label>
+                    <input id="referenceAmount" type="number" th:field="*{referenceAmount}" min="0.01" step="0.01" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('referenceAmount')}" th:errors="*{referenceAmount}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="referenceUnit">Serving unit</label>
+                    <input id="referenceUnit" type="text" th:field="*{referenceUnit}" list="food-unit-options" maxlength="50" required>
+                    <p class="field-error" th:if="${#fields.hasErrors('referenceUnit')}" th:errors="*{referenceUnit}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="referenceWeightGrams">Serving weight (g)</label>
+                    <input id="referenceWeightGrams" type="number" th:field="*{referenceWeightGrams}" min="0.01" step="0.01">
+                    <p class="field-hint">Use the gram weight in parentheses when the label provides one.</p>
+                    <p class="field-error" th:if="${#fields.hasErrors('referenceWeightGrams')}" th:errors="*{referenceWeightGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="calories">Calories</label>
+                    <input id="calories" type="number" th:field="*{calories}" min="0" step="0.01">
+                    <p class="field-error" th:if="${#fields.hasErrors('calories')}" th:errors="*{calories}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="proteinGrams">Protein (g)</label>
+                    <input id="proteinGrams" type="number" th:field="*{proteinGrams}" min="0" step="0.01">
+                    <p class="field-error" th:if="${#fields.hasErrors('proteinGrams')}" th:errors="*{proteinGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="carbohydrateGrams">Carbohydrates (g)</label>
+                    <input id="carbohydrateGrams" type="number" th:field="*{carbohydrateGrams}" min="0" step="0.01">
+                    <p class="field-error" th:if="${#fields.hasErrors('carbohydrateGrams')}" th:errors="*{carbohydrateGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="fatGrams">Fat (g)</label>
+                    <input id="fatGrams" type="number" th:field="*{fatGrams}" min="0" step="0.01">
+                    <p class="field-error" th:if="${#fields.hasErrors('fatGrams')}" th:errors="*{fatGrams}"></p>
+                </div>
+                <div class="form-field">
+                    <label for="fiberGrams">Fiber (g)</label>
+                    <input id="fiberGrams" type="number" th:field="*{fiberGrams}" min="0" step="0.01">
+                    <p class="field-error" th:if="${#fields.hasErrors('fiberGrams')}" th:errors="*{fiberGrams}"></p>
+                </div>
+                <div class="form-field form-field--full">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" th:field="*{notes}" rows="4" maxlength="2000"></textarea>
+                    <p class="field-error" th:if="${#fields.hasErrors('notes')}" th:errors="*{notes}"></p>
+                </div>
+                <div class="form-actions">
+                    <button type="submit">Confirm and save food</button>
+                </div>
+            </form>
+        </section>
+    </div>
+</main>
+<datalist id="food-unit-options">
+    <option value="serving"></option><option value="piece"></option><option value="slice"></option>
+    <option value="cup"></option><option value="tbsp"></option><option value="tsp"></option>
+    <option value="ml"></option><option value="l"></option><option value="g"></option>
+    <option value="kg"></option><option value="oz"></option><option value="lb"></option>
+</datalist>
+<script>
+(() => {
+    const loadingForms = document.querySelectorAll('.js-loading-form');
+    loadingForms.forEach(form => {
+        form.addEventListener('submit', event => {
+            if (form.dataset.submitting === 'true') {
+                event.preventDefault();
+                return;
+            }
+            form.dataset.submitting = 'true';
+            const button = form.querySelector('button[type="submit"]');
+            if (!button) return;
+            button.disabled = true;
+            button.dataset.originalLabel = button.textContent;
+            button.replaceChildren();
+            const spinner = document.createElement('span');
+            spinner.className = 'spinner spinner--small';
+            spinner.setAttribute('aria-hidden', 'true');
+            button.append(spinner, document.createTextNode(button.dataset.loadingLabel || 'Processing...'));
+        });
+    });
+
+    window.addEventListener('pageshow', () => loadingForms.forEach(form => {
+        form.dataset.submitting = 'false';
+        const button = form.querySelector('button[type="submit"]');
+        if (button?.dataset.originalLabel) {
+            button.textContent = button.dataset.originalLabel;
+            button.disabled = false;
+            delete button.dataset.originalLabel;
+        }
+    }));
+
+    const statusRegion = document.querySelector('.processing-status[data-status-url]');
+    if (!statusRegion) return;
+
+    const message = statusRegion.querySelector('.processing-status__message');
+    const startedAt = Date.now();
+    const intervalMs = Number(statusRegion.dataset.pollIntervalMs);
+    const limitMs = Number(statusRegion.dataset.pollLimitMs);
+    let stopped = false;
+    let timerId;
+
+    const stop = text => {
+        stopped = true;
+        if (timerId) window.clearTimeout(timerId);
+        if (text) message.textContent = text;
+    };
+    const schedule = () => {
+        if (!stopped) timerId = window.setTimeout(poll, intervalMs);
+    };
+    const poll = async () => {
+        if (stopped || document.visibilityState === 'hidden') {
+            schedule();
+            return;
+        }
+        if (Date.now() - startedAt >= limitMs) {
+            stop('Recognition may still be running. Use Refresh Status to check again.');
+            return;
+        }
+        try {
+            const response = await fetch(statusRegion.dataset.statusUrl, {
+                method: 'GET',
+                headers: {'Accept': 'application/json'},
+                cache: 'no-store'
+            });
+            if (response.status === 404 || response.status === 410) {
+                stop('This pending import no longer exists or has expired. Use Refresh Status to continue.');
+                return;
+            }
+            if (!response.ok) {
+                schedule();
+                return;
+            }
+            const payload = await response.json();
+            if (payload.status === 'processing') {
+                schedule();
+                return;
+            }
+            stop(payload.status === 'ready_for_review' ? 'Analysis complete. Loading the review form.' : 'Analysis stopped. Loading the latest status.');
+            window.location.assign(statusRegion.dataset.reviewUrl);
+        } catch (error) {
+            schedule();
+        }
+    };
+    schedule();
+    window.addEventListener('pagehide', () => stop());
+})();
+</script>
+</body>
+</html>

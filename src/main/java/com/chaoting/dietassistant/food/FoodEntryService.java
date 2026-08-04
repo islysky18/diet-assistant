@@ -113,11 +113,11 @@ public class FoodEntryService {
         BigDecimal fiberGrams = BigDecimal.ZERO;
 
         for (FoodEntryResponse entry : entries) {
-            calories = calories.add(entry.calories());
-            proteinGrams = proteinGrams.add(entry.proteinGrams());
-            carbohydrateGrams = carbohydrateGrams.add(entry.carbohydrateGrams());
-            fatGrams = fatGrams.add(entry.fatGrams());
-            fiberGrams = fiberGrams.add(entry.fiberGrams());
+            calories = calories.add(orZero(entry.calories()));
+            proteinGrams = proteinGrams.add(orZero(entry.proteinGrams()));
+            carbohydrateGrams = carbohydrateGrams.add(orZero(entry.carbohydrateGrams()));
+            fatGrams = fatGrams.add(orZero(entry.fatGrams()));
+            fiberGrams = fiberGrams.add(orZero(entry.fiberGrams()));
         }
 
         return new DailyNutritionTotalsResponse(
@@ -260,6 +260,7 @@ public class FoodEntryService {
     }
 
     private BigDecimal calculateNutrition(BigDecimal referenceNutrition, BigDecimal multiplier) {
+        if (referenceNutrition == null) return null;
         return referenceNutrition.multiply(multiplier).setScale(NUTRITION_SCALE, ROUNDING_MODE);
     }
 
@@ -268,6 +269,7 @@ public class FoodEntryService {
             BigDecimal storedMultiplier,
             BigDecimal newMultiplier
     ) {
+        if (storedNutrition == null) return null;
         return storedNutrition
                 .multiply(newMultiplier)
                 .divide(storedMultiplier, NUTRITION_SCALE, ROUNDING_MODE);
@@ -357,6 +359,10 @@ public class FoodEntryService {
             return null;
         }
         return value.trim();
+    }
+
+    private BigDecimal orZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 
     private FoodEntryResponse toResponse(FoodEntry foodEntry) {

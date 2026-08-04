@@ -37,6 +37,11 @@ public class SavedFoodService {
     }
 
     @Transactional(readOnly = true)
+    public boolean hasCurrentProfile() {
+        return currentProfileProvider.getProfile().isPresent();
+    }
+
+    @Transactional(readOnly = true)
     public List<SavedFoodResponse> searchSavedFoods(String query, boolean includeInactive) {
         String normalizedQuery = query == null ? "" : query.trim().toLowerCase(java.util.Locale.ROOT);
         return currentProfileProvider.getProfile()

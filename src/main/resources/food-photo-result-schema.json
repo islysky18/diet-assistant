@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name", "brand", "referenceAmount", "referenceUnit", "referenceWeightGrams",
+    "calories", "proteinGrams", "carbohydrateGrams", "fatGrams", "fiberGrams", "notes"
+  ],
+  "properties": {
+    "name": { "type": ["string", "null"] },
+    "brand": { "type": ["string", "null"] },
+    "referenceAmount": { "type": ["number", "null"] },
+    "referenceUnit": { "type": ["string", "null"] },
+    "referenceWeightGrams": { "type": ["number", "null"] },
+    "calories": { "type": ["number", "null"] },
+    "proteinGrams": { "type": ["number", "null"] },
+    "carbohydrateGrams": { "type": ["number", "null"] },
+    "fatGrams": { "type": ["number", "null"] },
+    "fiberGrams": { "type": ["number", "null"] },
+    "notes": { "type": ["string", "null"] }
+  }
+}
