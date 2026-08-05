@@ -9,6 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -27,6 +29,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Files;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
@@ -41,9 +44,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Testcontainers
 class FoodEntryIntegrationTest {
 
+    private static final Path TEST_PENDING_ROOT = createTestPendingRoot();
+
     @Container
     @ServiceConnection
     static final MySQLContainer<?> mysql = new MySQLContainer<>(DockerImageName.parse("mysql:8.4"));
+
+    @DynamicPropertySource
+    static void pendingImportProperties(DynamicPropertyRegistry registry) {
+        registry.add("diet-assistant.food-import.pending-directory", TEST_PENDING_ROOT::toString);
+    }
 
     @LocalServerPort
     private int port;
@@ -85,6 +95,76 @@ class FoodEntryIntegrationTest {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.body()).contains("Foods", "Save food", "Active oats", "Quaker", "Record intake", "Edit");
         assertThat(response.body()).doesNotContain("Inactive bar");
+    }
+
+    @Test
+    void manualDuplicateReviewCanUseExistingWithoutCreatingOrChangingIt() throws IOException, InterruptedException {
+        SavedFood existing = saveSavedFood("Diet Coke", "Coca-Cola", true);
+        Map<String, String> duplicate = savedFoodForm(
+                " diet   coke ", "Coca Cola", "1.0", "slice", "40.0", "100.0");
+        duplicate.put("notes", "Different recognition note");
+
+        HttpResponse<String> review = post("/foods", duplicate);
+
+        assertThat(review.uri().getPath()).startsWith("/foods/duplicates/");
+        assertThat(review.body()).contains("Possible duplicate found", "Use existing Coca-Cola - Diet Coke");
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+
+        HttpResponse<String> result = post(review.uri().getPath() + "/use-existing",
+                Map.of("candidateId", existing.getId().toString()));
+        assertThat(result.body()).contains("Existing saved food kept; no duplicate was created.");
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+        assertThat(savedFoodRepository.findById(existing.getId()).orElseThrow().isActive()).isTrue();
+    }
+
+    @Test
+    void manualDuplicateCreateAnywayIsSingleUseAndBackPreservesInput() throws IOException, InterruptedException {
+        saveSavedFood("Diet Coke", "Coca-Cola", true);
+        Map<String, String> duplicate = savedFoodForm(
+                "Diet Coke", "Coca-Cola", "1.00", "slice", "40.00", "100.00");
+
+        HttpResponse<String> backReview = post("/foods", duplicate);
+        HttpResponse<String> back = post(backReview.uri().getPath() + "/back", Map.of());
+        assertThat(back.body()).contains("value=\"Diet Coke\"", "value=\"Coca-Cola\"");
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+
+        HttpResponse<String> createReview = post("/foods", duplicate);
+        String createPath = createReview.uri().getPath() + "/create-anyway";
+        HttpResponse<String> created = post(createPath, Map.of());
+        HttpResponse<String> repeated = post(createPath, Map.of());
+
+        assertThat(created.body()).contains("Saved food created after duplicate review.");
+        assertThat(repeated.body()).contains("Duplicate review expired or was already completed.");
+        assertThat(savedFoodRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    void inactiveExactMatchDoesNotBlockManualCreation() throws IOException, InterruptedException {
+        saveSavedFood("Diet Coke", "Coca-Cola", false);
+
+        HttpResponse<String> response = post("/foods", savedFoodForm(
+                "Diet Coke", "Coca-Cola", "1.00", "slice", "40.00", "100.00"));
+
+        assertThat(response.uri().getPath()).startsWith("/foods");
+        assertThat(response.body()).contains("Saved food created.");
+        assertThat(savedFoodRepository.count()).isEqualTo(2);
+    }
+
+    @Test
+    void duplicateCandidateMustStillBeActiveAndMatchWhenUseExistingIsSubmitted()
+            throws IOException, InterruptedException {
+        SavedFood existing = saveSavedFood("Diet Coke", "Coca-Cola", true);
+        HttpResponse<String> review = post("/foods", savedFoodForm(
+                "Diet Coke", "Coca-Cola", "1.00", "slice", "40.00", "100.00"));
+        post("/foods/" + existing.getId() + "/deactivate", Map.of());
+
+        HttpResponse<String> result = post(review.uri().getPath() + "/use-existing",
+                Map.of("candidateId", existing.getId().toString()));
+
+        assertThat(result.uri().getPath()).isEqualTo("/foods");
+        assertThat(result.body()).contains("no longer an active duplicate", "value=\"Diet Coke\"");
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+        assertThat(savedFoodRepository.findById(existing.getId()).orElseThrow().isActive()).isFalse();
     }
 
     @Test
@@ -149,7 +229,7 @@ class FoodEntryIntegrationTest {
         var matcher = Pattern.compile("Import ID: ([0-9a-f-]{36})").matcher(uploadResponse.body());
         assertThat(matcher.find()).isTrue();
         String importId = matcher.group(1);
-        Path importDirectory = Path.of("data/pending-food-imports", importId);
+        Path importDirectory = TEST_PENDING_ROOT.resolve(importId);
         assertThat(importDirectory.resolve("nutrition-original.jpg")).exists();
         assertThat(importDirectory.resolve("nutrition.jpg")).exists();
         assertThat(importDirectory.resolve("metadata.json")).exists();
@@ -165,6 +245,38 @@ class FoodEntryIntegrationTest {
         assertThat(savedFoodRepository.findAll().getFirst().getProfileId())
                 .isEqualTo(profileService.getProfile().orElseThrow().id());
         assertThat(importDirectory).doesNotExist();
+    }
+
+    @Test
+    void photoDuplicateUseExistingCompletesImportWithoutCreatingAndCreateAnywayCannotRepeat()
+            throws IOException, InterruptedException {
+        SavedFood existing = saveSavedFood("Imported oats", "Example Brand", true);
+        Map<String, String> form = savedFoodForm(
+                "Imported oats", "Example Brand", "1.00", "slice", "40.00", "100.00");
+
+        HttpResponse<String> useUpload = postMultipartNutritionPhoto();
+        String useImportId = importId(useUpload.body());
+        Path useDirectory = TEST_PENDING_ROOT.resolve(useImportId);
+        HttpResponse<String> useReview = post("/foods/import/" + useImportId + "/confirm", form);
+        assertThat(useReview.body()).contains("Possible duplicate found");
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+
+        HttpResponse<String> used = post(useReview.uri().getPath() + "/use-existing",
+                Map.of("candidateId", existing.getId().toString()));
+        assertThat(used.body()).contains("Existing saved food used and pending photos deleted.");
+        assertThat(savedFoodRepository.count()).isEqualTo(1);
+        assertThat(useDirectory).doesNotExist();
+
+        HttpResponse<String> createUpload = postMultipartNutritionPhoto();
+        String createImportId = importId(createUpload.body());
+        Path createDirectory = TEST_PENDING_ROOT.resolve(createImportId);
+        HttpResponse<String> createReview = post("/foods/import/" + createImportId + "/confirm", form);
+        String createPath = createReview.uri().getPath() + "/create-anyway";
+
+        assertThat(post(createPath, Map.of()).body()).contains("Saved food created after duplicate review.");
+        assertThat(post(createPath, Map.of()).body()).contains("Duplicate review expired or was already completed.");
+        assertThat(savedFoodRepository.count()).isEqualTo(2);
+        assertThat(createDirectory).doesNotExist();
     }
 
     @Test
@@ -221,7 +333,7 @@ class FoodEntryIntegrationTest {
     @Test
     void invalidOptionalNutritionPreservesImportAndEditedFormWithoutSaving() throws IOException, InterruptedException {
         String importId = importId(postMultipartNutritionPhoto().body());
-        Path importDirectory = Path.of("data/pending-food-imports", importId);
+        Path importDirectory = TEST_PENDING_ROOT.resolve(importId);
         Map<String, String> form = savedFoodForm("Edited Diet Coke", "Coca-Cola", "1.00", "can", "", "0");
         form.put("proteinGrams", "-1");
         form.put("fiberGrams", "not-a-number");
@@ -245,7 +357,7 @@ class FoodEntryIntegrationTest {
     void dietCokeImportPreservesUnknownAndZeroValuesAndRepeatedConfirmIsIdempotent()
             throws IOException, InterruptedException {
         String importId = importId(postMultipartNutritionPhoto().body());
-        Path importDirectory = Path.of("data/pending-food-imports", importId);
+        Path importDirectory = TEST_PENDING_ROOT.resolve(importId);
         Map<String, String> form = savedFoodForm("Diet Coke", "Coca-Cola", "1", "can", "", "0");
         form.put("proteinGrams", "0");
         form.put("carbohydrateGrams", "0");
@@ -1075,5 +1187,13 @@ class FoodEntryIntegrationTest {
 
     private String encode(String value) {
         return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static Path createTestPendingRoot() {
+        try {
+            return Files.createTempDirectory("diet-assistant-food-import-test-");
+        } catch (IOException exception) {
+            throw new IllegalStateException("Unable to create pending-import test directory.", exception);
+        }
     }
 }

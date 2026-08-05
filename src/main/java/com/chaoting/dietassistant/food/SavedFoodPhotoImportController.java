@@ -2,6 +2,7 @@ package com.chaoting.dietassistant.food;
 
 import jakarta.validation.Valid;
 import org.springframework.stereotype.Controller;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,13 +20,22 @@ public class SavedFoodPhotoImportController {
 
     private final PendingFoodImportService pendingFoodImportService;
     private final SavedFoodService savedFoodService;
+    private final SavedFoodDuplicateReviewService duplicateReviewService;
 
+    @Autowired
     public SavedFoodPhotoImportController(
             PendingFoodImportService pendingFoodImportService,
-            SavedFoodService savedFoodService
+            SavedFoodService savedFoodService,
+            SavedFoodDuplicateReviewService duplicateReviewService
     ) {
         this.pendingFoodImportService = pendingFoodImportService;
         this.savedFoodService = savedFoodService;
+        this.duplicateReviewService = duplicateReviewService;
+    }
+
+    SavedFoodPhotoImportController(PendingFoodImportService pendingFoodImportService,
+                                   SavedFoodService savedFoodService) {
+        this(pendingFoodImportService, savedFoodService, null);
     }
 
     @ModelAttribute("imageRuntime")
@@ -130,9 +140,19 @@ public class SavedFoodPhotoImportController {
         if (pendingImport == null) {
             return redirectMissing(redirectAttributes);
         }
+        if (!canConfirm(pendingImport.status())) {
+            redirectAttributes.addFlashAttribute("errorMessage", "This pending import is not ready to confirm.");
+            return "redirect:/foods/import/" + importId;
+        }
         if (bindingResult.hasErrors()) {
             model.addAttribute("pendingImport", pendingImport);
             return "food-import";
+        }
+        if (duplicateReviewService != null) {
+            var duplicateToken = duplicateReviewService.beginPhoto(importId, savedFoodRequest);
+            if (duplicateToken.isPresent()) {
+                return "redirect:/foods/duplicates/" + duplicateToken.orElseThrow();
+            }
         }
         if (!pendingFoodImportService.confirm(importId, () -> savedFoodService.create(savedFoodRequest))) {
             return redirectMissing(redirectAttributes);
@@ -176,6 +196,11 @@ public class SavedFoodPhotoImportController {
     private String redirectMissing(RedirectAttributes redirectAttributes) {
         redirectAttributes.addFlashAttribute("successMessage", "Pending food import not found or expired.");
         return "redirect:/foods";
+    }
+
+    private boolean canConfirm(String status) {
+        return "pending".equals(status) || "ready_for_review".equals(status)
+                || "recognition_failed".equals(status) || "recognition_timed_out".equals(status);
     }
 
     public record ImportStatusResponse(String status) { }

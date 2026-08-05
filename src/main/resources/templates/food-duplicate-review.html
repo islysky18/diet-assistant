@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Possible duplicate found')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('foods')}"></header>
+<main class="page-shell">
+    <div class="page-heading">
+        <div>
+            <p class="page-heading__eyebrow">Food library</p>
+            <h1>Possible duplicate found</h1>
+            <p class="page-heading__description" role="status">Nothing has been created or changed. Compare the proposed food with the active matches below.</p>
+        </div>
+    </div>
+    <div class="stack">
+        <section class="card">
+            <div class="section-heading"><h2>Food you are about to create</h2></div>
+            <dl class="detail-grid">
+                <div><dt>Brand</dt><dd th:text="${duplicateReview.requested.brand} ?: '—'"></dd></div>
+                <div><dt>Name</dt><dd th:text="${duplicateReview.requested.name}"></dd></div>
+                <div><dt>Reference serving</dt><dd th:text="${duplicateReview.requested.referenceAmount + ' ' + duplicateReview.requested.referenceUnit}"></dd></div>
+                <div><dt>Reference weight</dt><dd th:text="${duplicateReview.requested.referenceWeightGrams != null ? duplicateReview.requested.referenceWeightGrams + ' g' : '—'}"></dd></div>
+                <div><dt>Calories</dt><dd th:text="${duplicateReview.requested.calories} ?: '—'"></dd></div>
+                <div><dt>Protein</dt><dd th:text="${duplicateReview.requested.proteinGrams != null ? duplicateReview.requested.proteinGrams + ' g' : '—'}"></dd></div>
+                <div><dt>Carbohydrates</dt><dd th:text="${duplicateReview.requested.carbohydrateGrams != null ? duplicateReview.requested.carbohydrateGrams + ' g' : '—'}"></dd></div>
+                <div><dt>Fat</dt><dd th:text="${duplicateReview.requested.fatGrams != null ? duplicateReview.requested.fatGrams + ' g' : '—'}"></dd></div>
+                <div><dt>Fiber</dt><dd th:text="${duplicateReview.requested.fiberGrams != null ? duplicateReview.requested.fiberGrams + ' g' : '—'}"></dd></div>
+            </dl>
+        </section>
+        <section class="card" aria-labelledby="matches-heading">
+            <div class="section-heading">
+                <h2 id="matches-heading">Matching active Saved Foods</h2>
+                <p>The existing item will not be modified automatically.</p>
+            </div>
+            <article class="card" th:each="candidate : ${duplicateReview.candidates}">
+                <h3 th:text="${candidate.displayName}"></h3>
+                <p th:text="${candidate.referenceServing + (candidate.referenceWeightGrams != null ? ' · ' + candidate.referenceWeightGrams + ' g' : '')}"></p>
+                <p th:text="${'Calories ' + (candidate.calories != null ? candidate.calories : '—') + ' · Protein ' + (candidate.proteinGrams != null ? candidate.proteinGrams + ' g' : '—') + ' · Carbohydrates ' + (candidate.carbohydrateGrams != null ? candidate.carbohydrateGrams + ' g' : '—') + ' · Fat ' + (candidate.fatGrams != null ? candidate.fatGrams + ' g' : '—') + ' · Fiber ' + (candidate.fiberGrams != null ? candidate.fiberGrams + ' g' : '—')}"></p>
+                <form th:action="@{/foods/duplicates/{token}/use-existing(token=${duplicateReview.token})}" method="post">
+                    <input type="hidden" name="candidateId" th:value="${candidate.id}">
+                    <button type="submit" th:text="${'Use existing ' + candidate.displayName}"></button>
+                </form>
+            </article>
+            <p>Create Anyway is intended for a different package, a different product version, or when you intentionally want both records.</p>
+            <div class="form-actions">
+                <form th:action="@{/foods/duplicates/{token}/create-anyway(token=${duplicateReview.token})}" method="post">
+                    <button class="button--secondary" type="submit">Create this Saved Food anyway</button>
+                </form>
+                <form th:action="@{/foods/duplicates/{token}/back(token=${duplicateReview.token})}" method="post">
+                    <button class="button--secondary" type="submit" th:text="${duplicateReview.source.name() == 'PHOTO' ? 'Back to photo review' : 'Back to Saved Food form'}"></button>
+                </form>
+            </div>
+        </section>
+    </div>
+</main>
+</body>
+</html>

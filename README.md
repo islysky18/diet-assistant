@@ -270,3 +270,9 @@ docker run --rm diet-assistant-image-runtime:test verify-image-runtime
 ```
 
 CI builds this Dockerfile with the GitHub Actions build cache, runs the version/capability/synthetic HEIC decode probe, then executes the complete Maven suite in the same image. It never invokes ImageMagick 6 `convert`. A later phase may publish this image to GHCR and pin consumers to its digest; this repository intentionally does not publish it yet.
+
+## Saved Food duplicate review
+
+Manual creation and photo-import confirmation compare the proposed food with active Saved Foods before creating it. Matching uses normalized brand, name, reference amount/unit, and exact nullable nutrition values; notes are intentionally ignored. A server-held, short-lived review token preserves the validated proposal while the user chooses an existing item, creates the new item anyway, or returns to edit it. Inactive foods never block creation and are never reactivated automatically.
+
+The photo path keeps the pending import's atomic confirmation claim, so competing or repeated duplicate-review actions have one terminal result. The first version intentionally has no global database unique constraint: two independent manual requests submitted concurrently can still create identical foods. Avoiding that race without blocking legitimate product variants requires a later, explicit identity design.

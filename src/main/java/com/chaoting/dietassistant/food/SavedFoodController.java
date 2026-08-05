@@ -15,9 +15,12 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class SavedFoodController {
 
     private final SavedFoodService savedFoodService;
+    private final SavedFoodDuplicateReviewService duplicateReviewService;
 
-    public SavedFoodController(SavedFoodService savedFoodService) {
+    public SavedFoodController(SavedFoodService savedFoodService,
+                               SavedFoodDuplicateReviewService duplicateReviewService) {
         this.savedFoodService = savedFoodService;
+        this.duplicateReviewService = duplicateReviewService;
     }
 
     @GetMapping("/foods")
@@ -45,6 +48,10 @@ public class SavedFoodController {
             return "foods";
         }
 
+        var duplicateToken = duplicateReviewService.beginManual(savedFoodRequest);
+        if (duplicateToken.isPresent()) {
+            return "redirect:/foods/duplicates/" + duplicateToken.orElseThrow();
+        }
         savedFoodService.create(savedFoodRequest);
         redirectAttributes.addFlashAttribute("successMessage", "Saved food created.");
         return "redirect:/foods";

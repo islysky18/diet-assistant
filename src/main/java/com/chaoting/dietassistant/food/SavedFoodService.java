@@ -3,6 +3,7 @@ package com.chaoting.dietassistant.food;
 import com.chaoting.dietassistant.profile.CurrentProfileProvider;
 import com.chaoting.dietassistant.profile.ProfileResponse;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -16,15 +17,25 @@ public class SavedFoodService {
     private final SavedFoodRepository savedFoodRepository;
     private final CurrentProfileProvider currentProfileProvider;
     private final Clock clock;
+    private final SavedFoodDuplicateMatcher duplicateMatcher;
 
+    @Autowired
     public SavedFoodService(
             SavedFoodRepository savedFoodRepository,
             CurrentProfileProvider currentProfileProvider,
-            Clock clock
+            Clock clock,
+            SavedFoodDuplicateMatcher duplicateMatcher
     ) {
         this.savedFoodRepository = savedFoodRepository;
         this.currentProfileProvider = currentProfileProvider;
         this.clock = clock;
+        this.duplicateMatcher = duplicateMatcher;
+    }
+
+    SavedFoodService(SavedFoodRepository savedFoodRepository,
+                     CurrentProfileProvider currentProfileProvider,
+                     Clock clock) {
+        this(savedFoodRepository, currentProfileProvider, clock, new SavedFoodDuplicateMatcher());
     }
 
     @Transactional(readOnly = true)
@@ -78,6 +89,13 @@ public class SavedFoodService {
         savedFood.setCreatedAt(now);
         savedFood.setUpdatedAt(now);
         return toResponse(savedFoodRepository.save(savedFood));
+    }
+
+    @Transactional(readOnly = true)
+    public List<SavedFoodResponse> findActiveDuplicates(SavedFoodRequest request) {
+        return listActiveSavedFoods().stream()
+                .filter(existing -> duplicateMatcher.matches(request, existing))
+                .toList();
     }
 
     @Transactional
