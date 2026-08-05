@@ -85,6 +85,24 @@ class SavedFoodPhotoImportControllerTest {
     }
 
     @Test
+    void processingImportCannotEnterConfirmationOrDuplicateReview() {
+        PendingFoodImportView pending = new PendingFoodImportView(
+                "123e4567-e89b-12d3-a456-426614174000", "processing",
+                LocalDateTime.of(2026, 8, 2, 9, 0), LocalDateTime.of(2026, 8, 3, 9, 0),
+                false, "nutrition.jpg", null, false, null);
+        pendingFoodImportService.pending = Optional.of(pending);
+        SavedFoodRequest request = new SavedFoodRequest();
+
+        String view = controller.confirm(pending.importId(), request,
+                new BeanPropertyBindingResult(request, "savedFoodRequest"),
+                new ConcurrentModel(), new RedirectAttributesModelMap());
+
+        assertThat(view).isEqualTo("redirect:/foods/import/" + pending.importId());
+        assertThat(savedFoodService.createdRequest).isNull();
+        assertThat(pendingFoodImportService.confirmCalled).isFalse();
+    }
+
+    @Test
     void statusEndpointReturnsOnlyCurrentStatusWithoutStartingRecognition() {
         pendingFoodImportService.status = Optional.of("processing");
 

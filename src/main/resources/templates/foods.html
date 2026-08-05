@@ -15,6 +15,7 @@
     </div>
 
     <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
+    <p class="alert alert--error" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></p>
 
     <div class="stack">
         <section class="card">
