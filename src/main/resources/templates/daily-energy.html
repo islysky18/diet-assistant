@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Daily energy')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('today')}"></header>
+<main class="page-shell page-shell--narrow">
+    <div class="page-heading"><div><p class="page-heading__eyebrow">Activity</p><h1>Daily energy</h1>
+        <p class="page-heading__description">Enter a daily activity summary. Apple Health values take priority; manual values fill missing fields.</p></div></div>
+    <section class="card">
+        <form th:action="@{/daily-energy}" th:object="${energyRequest}" method="post" class="form-stack">
+            <div class="alert alert--error" th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}"></div>
+            <div class="form-grid">
+                <div class="field"><label for="date">Date</label><input id="date" type="date" th:field="*{date}"><p class="field-error" th:errors="*{date}"></p></div>
+                <div class="field"><label for="timezone">Timezone</label><input id="timezone" th:field="*{timezone}" placeholder="America/Los_Angeles"><p class="field-error" th:errors="*{timezone}"></p></div>
+                <div class="field"><label for="activeEnergyKcal">Active energy (kcal)</label><input id="activeEnergyKcal" type="number" min="0" max="20000" step="0.01" th:field="*{activeEnergyKcal}"><p class="field-error" th:errors="*{activeEnergyKcal}"></p></div>
+                <div class="field"><label for="restingEnergyKcal">Resting energy (kcal)</label><input id="restingEnergyKcal" type="number" min="0" max="20000" step="0.01" th:field="*{restingEnergyKcal}"><p class="field-error" th:errors="*{restingEnergyKcal}"></p></div>
+                <div class="field"><label for="steps">Steps</label><input id="steps" type="number" min="0" max="500000" th:field="*{steps}"><p class="field-error" th:errors="*{steps}"></p></div>
+                <div class="field"><label for="exerciseMinutes">Exercise minutes</label><input id="exerciseMinutes" type="number" min="0" max="1440" th:field="*{exerciseMinutes}"><p class="field-error" th:errors="*{exerciseMinutes}"></p></div>
+            </div>
+            <p class="help-text">Blank means unknown; zero is stored as a real value.</p>
+            <div class="form-actions"><button type="submit">Save daily energy</button><a class="button button--secondary" th:href="@{/(date=*{date})}">Cancel</a></div>
+        </form>
+    </section>
+</main>
+</body>
+</html>

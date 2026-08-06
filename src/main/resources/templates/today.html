@@ -25,6 +25,28 @@
     <div class="stack">
         <section class="card">
             <div class="section-heading">
+                <div><h2>Energy balance</h2><p>Burned so far and today’s estimated end-of-day outlook</p></div>
+                <a class="button button--small" th:href="@{/daily-energy(date=${energy.date})}">Enter activity manually</a>
+            </div>
+            <p class="alert alert--info" th:unless="${energy.hasEnergyData}">No activity data is available for this date. Calories consumed are still shown below.</p>
+            <dl class="summary-metrics energy-metrics">
+                <div><dt>Calories consumed</dt><dd th:text="${#numbers.formatDecimal(energy.caloriesConsumed, 1, 2) + ' kcal'}"></dd></div>
+                <div><dt>Active energy</dt><dd th:text="${energy.activeEnergyKcal == null ? 'Not available' : #numbers.formatDecimal(energy.activeEnergyKcal, 1, 2) + ' kcal'}"></dd></div>
+                <div><dt>Resting energy</dt><dd th:text="${energy.restingEnergyKcal == null ? 'Not available' : #numbers.formatDecimal(energy.restingEnergyKcal, 1, 2) + ' kcal'}"></dd></div>
+                <div><dt>Total burned so far</dt><dd th:text="${energy.totalBurned == null ? 'Not available' : #numbers.formatDecimal(energy.totalBurned, 1, 2) + ' kcal'}"></dd><small th:if="${energy.partialData}">Partial data</small></div>
+                <div><dt>Current balance</dt><dd th:text="${energy.balanceLabel == null ? 'Not available' : #numbers.formatDecimal(energy.balanceAmount, 1, 2) + ' kcal ' + #strings.toLowerCase(energy.balanceLabel)}"></dd></div>
+                <div><dt>Projected end-of-day burn <small>(estimate)</small></dt><dd th:text="${energy.projectedTotalBurn == null ? 'Not available' : #numbers.formatDecimal(energy.projectedTotalBurn, 1, 2) + ' kcal'}"></dd></div>
+                <div><dt>Projected end-of-day balance <small>(estimate)</small></dt><dd th:text="${energy.projectedBalanceLabel == null ? 'Not available' : #numbers.formatDecimal(energy.projectedBalanceAmount, 1, 2) + ' kcal ' + #strings.toLowerCase(energy.projectedBalanceLabel)}"></dd></div>
+                <div><dt>Steps</dt><dd th:text="${energy.steps == null ? 'Not available' : #numbers.formatInteger(energy.steps, 1)}"></dd></div>
+                <div><dt>Exercise minutes</dt><dd th:text="${energy.exerciseMinutes == null ? 'Not available' : energy.exerciseMinutes + ' min'}"></dd></div>
+                <div><dt>Data source</dt><dd th:text="${energy.sourceLabel}"></dd></div>
+                <div><dt>Last updated</dt><dd th:text="${energy.lastUpdated == null ? 'Not available' : #temporals.format(energy.lastUpdated, 'yyyy-MM-dd HH:mm z')}"></dd></div>
+            </dl>
+            <p class="help-text" th:if="${!energy.today}">Historical dates show stored actual values; projections are unavailable.</p>
+            <p class="help-text">Energy burn values are estimates and are most useful for tracking trends.</p>
+        </section>
+        <section class="card">
+            <div class="section-heading">
                 <h2>Nutrition progress</h2>
                 <p th:if="${progress.hasNutritionGoal}">Consumed compared with your daily goals</p>
                 <p th:unless="${progress.hasNutritionGoal}">Consumed totals for this date</p>

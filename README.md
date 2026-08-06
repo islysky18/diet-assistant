@@ -36,6 +36,7 @@ DIET_ASSISTANT_DB_USERNAME
 DIET_ASSISTANT_DB_PASSWORD
 DIET_ASSISTANT_DB_ROOT_PASSWORD
 DIET_ASSISTANT_DB_URL
+DIET_ASSISTANT_LOCAL_SYNC_TOKEN
 ```
 
 MySQL is exposed locally on `localhost:3307`. The local JDBC URL should be:
@@ -195,6 +196,68 @@ Use it only when you intentionally want to reset the local MySQL database.
 ```shell
 ./mvnw test
 ```
+
+## Daily energy and calorie balance
+
+The Today dashboard combines Food Entry snapshot calories with a daily activity aggregate. It shows active and resting energy, burned energy so far, steps, exercise minutes, current balance, and (for today only) an end-of-day estimate. Historical Food Entries are never recalculated from Saved Foods.
+
+Calculations use these definitions:
+
+```text
+total burned = active energy + resting energy
+energy balance = calories consumed - total burned
+projected resting energy = resting energy so far × 24 / elapsed hours
+projected total burn = active energy so far + projected resting energy
+```
+
+A negative energy balance is displayed as a positive `deficit`; a positive balance is displayed as a positive `surplus`. Projection starts after one elapsed hour, uses the saved IANA timezone and application clock, never projects active energy, and is unavailable when resting data is missing. Energy values are estimates useful for trends, not exact medical measurements.
+
+Use **Enter activity manually** on Today to create or update `/daily-energy` for today or a historical date. Blank numeric fields remain unknown; an entered zero remains zero. When both sources exist, each non-null Apple Health field is preferred and a manual field is only its fallback—the sources are never added together.
+
+### Local Wi-Fi sync API
+
+Set a long random local secret in `.env`; the API remains safely disabled (returns 401) when it is absent:
+
+```text
+DIET_ASSISTANT_LOCAL_SYNC_TOKEN=REPLACE_WITH_A_LONG_RANDOM_LOCAL_TOKEN
+```
+
+Only `/api/health/**` requires this Bearer token; browser pages are unaffected. The service stores daily aggregates locally and does not log or return the token. To test, replace the date with today according to the application clock:
+
+```shell
+curl -i \
+  -X PUT \
+  "http://localhost:8080/api/health/daily-energy/2026-08-05" \
+  -H "Authorization: Bearer <local-sync-token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "activeEnergyKcal": 540.30,
+    "restingEnergyKcal": 1260.80,
+    "steps": 8421,
+    "exerciseMinutes": 47,
+    "timezone": "America/Los_Angeles",
+    "sourceUpdatedAt": "2026-08-05T20:00:00-07:00"
+  }'
+```
+
+Repeated requests update the same date. A request older than the saved `sourceUpdatedAt`, or a missing timestamp attempting to replace timestamped data, receives HTTP 409.
+
+For LAN access, keep the Mac and iPhone on the same Wi-Fi and first open `http://<mac-lan-ip>:8080/` in iPhone Safari. Use `http://<mac-lan-ip>:8080/api/health/daily-energy/YYYY-MM-DD` in the Shortcut. `localhost` on iPhone means the iPhone, not the Mac. macOS Firewall may ask permission for Java to accept incoming connections; no router forwarding or public exposure is needed.
+
+### Build the “Sync Diet Assistant” Shortcut
+
+1. Get the current date and define today’s local start and end.
+2. Find Health samples for **Active Energy** in that range and calculate their sum.
+3. Find **Resting Energy** samples in the same range and calculate their sum.
+4. Find **Steps** samples in the same range and calculate their sum.
+5. Optionally add Exercise Minutes if that Health metric/action is available reliably on the installed iOS version (the displayed action name can vary).
+6. Build a dictionary with `activeEnergyKcal`, `restingEnergyKcal`, `steps`, optional `exerciseMinutes`, the iPhone’s IANA `timezone`, and an offset-aware `sourceUpdatedAt`.
+7. Add **Get Contents of URL**, choose PUT and JSON, use the LAN URL above, and add `Authorization: Bearer <local-sync-token>` plus `Content-Type: application/json` headers.
+8. Show a success message for a 2xx response and the returned error otherwise.
+
+Grant Shortcuts access to the requested Health data. Filter every sample to today’s local-day range and sum each sample set once; do not re-add an already cumulative result. The Shortcut is safe to run repeatedly because the backend upserts one Apple Health row per day.
+
+Privacy and limitations: this is local, single-user storage with no native HealthKit integration, cloud sync, public HTTPS endpoint, or background sync. The Shortcut must be run manually while the Mac, application, and MySQL are running on the same Wi-Fi. Only daily aggregates are stored. The projection is deliberately simple, and Apple Watch energy expenditure is not exact.
 
 ## Semi-automatic Product Photo Import
 

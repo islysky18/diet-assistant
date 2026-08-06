@@ -215,6 +215,9 @@ button.button--small {
     font-weight: 800;
 }
 
+.energy-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.energy-metrics small, .help-text { color: var(--muted); }
+
 .empty-state {
     text-align: center;
 }
