@@ -23,7 +23,7 @@
     </p>
 
     <div class="stack">
-        <section class="card">
+        <section class="card" th:if="${energy != null}">
             <div class="section-heading">
                 <div><h2>Energy balance</h2><p>Burned so far and today’s estimated end-of-day outlook</p></div>
                 <a class="button button--small" th:href="@{/daily-energy(date=${energy.date})}">Enter activity manually</a>
@@ -44,6 +44,13 @@
             </dl>
             <p class="help-text" th:if="${!energy.today}">Historical dates show stored actual values; projections are unavailable.</p>
             <p class="help-text">Energy burn values are estimates and are most useful for tracking trends.</p>
+        </section>
+        <section class="card" th:unless="${energy != null}">
+            <div class="section-heading">
+                <div><h2>Energy balance</h2><p>Activity data is temporarily unavailable.</p></div>
+                <a class="button button--small" th:href="@{/daily-energy(date=${progress.selectedDate})}">Enter activity manually</a>
+            </div>
+            <p class="alert alert--info">No activity data is available for this date. Nutrition progress remains available below.</p>
         </section>
         <section class="card">
             <div class="section-heading">

@@ -69,6 +69,15 @@ class DailyEnergyIntegrationTest {
                 .doesNotContain("value=\"540.30\"");
     }
 
+    @Test void todayDashboardRendersWhenNoEnergyRowExists() throws Exception {
+        HttpResponse<String> response = client.send(
+                HttpRequest.newBuilder(uri("/")).GET().build(),
+                HttpResponse.BodyHandlers.ofString());
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.body()).contains("Energy balance", "No activity data is available", "Not available");
+    }
+
     @Test void databaseEnforcesUniqueSourceAndCascadesProfileDeletion() throws Exception {
         assertThat(put("{\"activeEnergyKcal\":0,\"timezone\":\"America/Los_Angeles\"}", "test-only-token").statusCode()).isEqualTo(200);
         Long profileId = profiles.getProfile().orElseThrow().id();
