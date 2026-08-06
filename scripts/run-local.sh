@@ -36,6 +36,28 @@ MESSAGE
   exit 1
 fi
 
+line_number=0
+while IFS= read -r line || [[ -n "$line" ]]; do
+  ((line_number += 1))
+  line="${line%$'\r'}"
+  [[ "$line" =~ ^[[:space:]]*$ || "$line" =~ ^[[:space:]]*# ]] && continue
+
+  if [[ "$line" != *=* ]]; then
+    echo "Invalid .env entry on line $line_number: expected NAME=value." >&2
+    exit 1
+  fi
+
+  variable_name="${line%%=*}"
+  variable_value="${line#*=}"
+
+  if [[ ! "$variable_name" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "Invalid .env variable name on line $line_number." >&2
+    exit 1
+  fi
+
+  [[ "$variable_name" == DIET_ASSISTANT_* ]] && export "$variable_name=$variable_value"
+done < .env
+
 required_variables=(
   DIET_ASSISTANT_DB_URL
   DIET_ASSISTANT_DB_USERNAME
@@ -45,7 +67,7 @@ required_variables=(
 missing_variables=()
 
 for variable_name in "${required_variables[@]}"; do
-  if ! grep -Eq "^${variable_name}=.+" .env; then
+  if [[ -z "${!variable_name:-}" ]]; then
     missing_variables+=("$variable_name")
   fi
 done
@@ -55,20 +77,6 @@ if (( ${#missing_variables[@]} > 0 )); then
   printf '  %s\n' "${missing_variables[@]}" >&2
   exit 1
 fi
-
-while IFS= read -r line || [[ -n "$line" ]]; do
-  [[ -z "$line" || "$line" == \#* ]] && continue
-  [[ "$line" != *=* ]] && continue
-
-  variable_name="${line%%=*}"
-  variable_value="${line#*=}"
-
-  case "$variable_name" in
-    DIET_ASSISTANT_DB_URL|DIET_ASSISTANT_DB_USERNAME|DIET_ASSISTANT_DB_PASSWORD)
-      export "$variable_name=$variable_value"
-      ;;
-  esac
-done < .env
 
 export SPRING_PROFILES_ACTIVE=local
 

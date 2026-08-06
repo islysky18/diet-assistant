@@ -28,7 +28,7 @@ cp .env.example .env
 
 Edit `.env` before starting MySQL and replace placeholder values with local-only credentials. Never commit `.env`.
 
-Required variables:
+Required database variables:
 
 ```text
 DIET_ASSISTANT_DB_NAME
@@ -36,8 +36,9 @@ DIET_ASSISTANT_DB_USERNAME
 DIET_ASSISTANT_DB_PASSWORD
 DIET_ASSISTANT_DB_ROOT_PASSWORD
 DIET_ASSISTANT_DB_URL
-DIET_ASSISTANT_LOCAL_SYNC_TOKEN
 ```
+
+`DIET_ASSISTANT_LOCAL_SYNC_TOKEN` is optional. When omitted or empty, browser pages still work and `/api/health/**` safely returns HTTP 401.
 
 MySQL is exposed locally on `localhost:3307`. The local JDBC URL should be:
 
@@ -82,16 +83,7 @@ Start the application with the `local` profile:
 ./scripts/run-local.sh
 ```
 
-On macOS, the script uses `/usr/libexec/java_home -v 21` to select Java 21 when available.
-
-Or run the commands directly:
-
-```shell
-set -a
-source .env
-set +a
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
-```
+On macOS, the script uses `/usr/libexec/java_home -v 21` to select Java 21 when available. It safely loads all `DIET_ASSISTANT_*` values from `.env` without executing the file as shell code. Use this script instead of invoking the Maven wrapper directly whenever Java selection and `.env` loading are required.
 
 Open the application:
 
@@ -168,7 +160,7 @@ Then the application probably did not start with the `local` profile, or the req
 Start with:
 
 ```shell
-./mvnw spring-boot:run -Dspring-boot.run.profiles=local
+./scripts/run-local.sh
 ```
 
 ### Spring Boot Shows No Active Profile
@@ -179,7 +171,17 @@ If the logs show:
 No active profile set
 ```
 
-The `local` profile is not active. Use `./scripts/run-local.sh`, pass `-Dspring-boot.run.profiles=local`, or configure IntelliJ Active profiles as `local`.
+The `local` profile is not active. Use `./scripts/run-local.sh` or configure IntelliJ Active profiles as `local`.
+
+### Spring Boot Uses Java 8
+
+An `UnsupportedClassVersionError` that says the runtime recognizes class file versions only up to `52.0` means Java 8 is running. This project requires Java 21. Verify the selected runtime with:
+
+```shell
+java -version
+```
+
+Direct `./mvnw spring-boot:run` invocation may inherit the wrong `JAVA_HOME`. Start the application with `./scripts/run-local.sh`, which selects and validates Java 21.
 
 ### Resetting Docker MySQL Data
 
@@ -212,7 +214,7 @@ projected total burn = active energy so far + projected resting energy
 
 A negative energy balance is displayed as a positive `deficit`; a positive balance is displayed as a positive `surplus`. Projection starts after one elapsed hour, uses the saved IANA timezone and application clock, never projects active energy, and is unavailable when resting data is missing. Energy values are estimates useful for trends, not exact medical measurements.
 
-Use **Enter activity manually** on Today to create or update `/daily-energy` for today or a historical date. Blank numeric fields remain unknown; an entered zero remains zero. When both sources exist, each non-null Apple Health field is preferred and a manual field is only its fallback—the sources are never added together.
+Use **Enter activity totals** (or **Edit daily activity totals** when values already exist) on Today to create or update `/daily-energy` for today or a historical date. Blank numeric fields remain unknown; an entered zero remains zero. When both sources exist, each non-null Apple Health field is preferred and a manual field is only its fallback—the sources are never added together.
 
 ### Local Wi-Fi sync API
 
