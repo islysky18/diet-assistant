@@ -96,7 +96,7 @@ public class DailyEnergyService {
         return new EnergySummary(date, consumed, active, resting, total,
                 total != null && (active == null || resting == null), current.label(), current.amount(),
                 projected, projectedBalance.label(), projectedBalance.amount(), steps, exercise,
-                sourceLabel(apple, manual), displayUpdated(latest), !rows.isEmpty(), today);
+                sourceLabel(apple, manual), displayUpdated(latest), !rows.isEmpty(), manual != null, today);
     }
 
     private BigDecimal projectedTotal(LocalDate date, BigDecimal active, BigDecimal resting, String timezone) {

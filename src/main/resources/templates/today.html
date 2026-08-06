@@ -26,7 +26,8 @@
         <section class="card" th:if="${energy != null}">
             <div class="section-heading">
                 <div><h2>Energy balance</h2><p>Burned so far and today’s estimated end-of-day outlook</p></div>
-                <a class="button button--small" th:href="@{/daily-energy(date=${energy.date})}">Enter activity manually</a>
+                <a class="button button--small" th:href="@{/daily-energy(date=${energy.date})}"
+                   th:text="${energy.hasManualRecord ? 'Edit daily activity totals' : 'Enter activity totals'}">Enter activity totals</a>
             </div>
             <p class="alert alert--info" th:unless="${energy.hasEnergyData}">No activity data is available for this date. Calories consumed are still shown below.</p>
             <dl class="summary-metrics energy-metrics">
@@ -48,7 +49,7 @@
         <section class="card" th:unless="${energy != null}">
             <div class="section-heading">
                 <div><h2>Energy balance</h2><p>Activity data is temporarily unavailable.</p></div>
-                <a class="button button--small" th:href="@{/daily-energy(date=${progress.selectedDate})}">Enter activity manually</a>
+                <a class="button button--small" th:href="@{/daily-energy(date=${progress.selectedDate})}">Enter activity totals</a>
             </div>
             <p class="alert alert--info">No activity data is available for this date. Nutrition progress remains available below.</p>
         </section>

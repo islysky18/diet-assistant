@@ -5,8 +5,9 @@
 <header th:replace="~{fragments/layout :: header('today')}"></header>
 <main class="page-shell page-shell--narrow">
     <div class="page-heading"><div><p class="page-heading__eyebrow">Activity</p><h1>Daily energy</h1>
-        <p class="page-heading__description">Enter a daily activity summary. Apple Health values take priority; manual values fill missing fields.</p></div></div>
+        <p class="page-heading__description">Enter cumulative totals for this date. Saving replaces the existing manual values; it does not add to them.</p></div></div>
     <section class="card">
+        <p class="alert alert--info">Apple Health is the preferred source. Manual values are fallback values for fields Apple Health does not provide; they are not added to Apple Health values.</p>
         <form th:action="@{/daily-energy}" th:object="${energyRequest}" method="post" class="form-stack">
             <div class="alert alert--error" th:if="${#fields.hasGlobalErrors()}" th:each="error : ${#fields.globalErrors()}" th:text="${error}"></div>
             <div class="form-grid">

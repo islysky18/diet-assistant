@@ -9,4 +9,4 @@ public record EnergySummary(LocalDate date, BigDecimal caloriesConsumed,
         boolean partialData, String balanceLabel, BigDecimal balanceAmount,
         BigDecimal projectedTotalBurn, String projectedBalanceLabel, BigDecimal projectedBalanceAmount,
         Integer steps, Integer exerciseMinutes, String sourceLabel, ZonedDateTime lastUpdated,
-        boolean hasEnergyData, boolean today) { }
+        boolean hasEnergyData, boolean hasManualRecord, boolean today) { }
