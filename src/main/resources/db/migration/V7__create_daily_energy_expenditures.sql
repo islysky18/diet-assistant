@@ -1,0 +1,22 @@
+CREATE TABLE daily_energy_expenditures (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    profile_id BIGINT NOT NULL,
+    activity_date DATE NOT NULL,
+    active_energy_kcal DECIMAL(10, 2) NULL,
+    resting_energy_kcal DECIMAL(10, 2) NULL,
+    steps INT NULL,
+    exercise_minutes INT NULL,
+    source VARCHAR(30) NOT NULL,
+    timezone VARCHAR(100) NOT NULL,
+    source_updated_at DATETIME(6) NULL,
+    created_at DATETIME(6) NOT NULL,
+    updated_at DATETIME(6) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_daily_energy_profile FOREIGN KEY (profile_id) REFERENCES profiles (id) ON DELETE CASCADE,
+    CONSTRAINT uk_daily_energy_profile_date_source UNIQUE (profile_id, activity_date, source),
+    CONSTRAINT ck_daily_energy_active CHECK (active_energy_kcal IS NULL OR active_energy_kcal >= 0),
+    CONSTRAINT ck_daily_energy_resting CHECK (resting_energy_kcal IS NULL OR resting_energy_kcal >= 0),
+    CONSTRAINT ck_daily_energy_steps CHECK (steps IS NULL OR steps >= 0),
+    CONSTRAINT ck_daily_energy_exercise CHECK (exercise_minutes IS NULL OR exercise_minutes >= 0),
+    CONSTRAINT ck_daily_energy_source CHECK (source IN ('MANUAL', 'APPLE_HEALTH'))
+);
