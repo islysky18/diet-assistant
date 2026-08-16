@@ -91,15 +91,15 @@
                 <h2>Saved foods</h2>
                 <p th:text="${#lists.size(savedFoods) + ' matching foods'}"></p>
             </div>
-            <form class="form-grid" th:action="@{/foods}" method="get">
+            <form class="form-grid food-search-form" th:action="@{/foods}" method="get">
                 <div class="form-field">
                     <label for="q">Search by food or brand</label>
                     <input id="q" name="q" type="search" th:value="${searchQuery}" placeholder="e.g. yogurt or Chobani">
                 </div>
-                <div class="form-field">
-                    <label>
+                <div class="form-field food-search-form__checkbox">
+                    <label class="checkbox-field">
                         <input name="includeInactive" type="checkbox" value="true" th:checked="${includeInactive}">
-                        Include inactive foods
+                        <span>Include inactive foods</span>
                     </label>
                 </div>
                 <div class="form-actions">
