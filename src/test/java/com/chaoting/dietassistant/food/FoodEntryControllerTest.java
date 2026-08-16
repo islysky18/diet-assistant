@@ -42,6 +42,7 @@ class FoodEntryControllerTest {
         assertThat(((FoodEntryRequest) model.getAttribute("foodEntryRequest")).getEatenAt())
                 .isEqualTo(LocalDateTime.of(2026, 7, 31, 11, 0));
         assertThat(model.getAttribute("today")).isEqualTo(LocalDate.of(2026, 8, 1));
+        assertThat(model.getAttribute("recentFoods")).isEqualTo(List.of());
     }
 
     @Test
@@ -93,6 +94,43 @@ class FoodEntryControllerTest {
                 .isEqualTo(LocalDateTime.of(2026, 7, 30, 20, 0));
     }
 
+    @Test
+    void quickLogRedirectsToSelectedDateAndSetsSuccessOrWarningFlash() {
+        foodEntryService.quickLogResult = new FoodEntryService.QuickLogResult(
+                response(3L, LocalDateTime.of(2026, 7, 31, 18, 0)), null);
+        RedirectAttributesModelMap successAttributes = new RedirectAttributesModelMap();
+
+        String successRedirect = controller.quickLog(3L, "2026-07-31", successAttributes);
+
+        assertThat(successRedirect).isEqualTo("redirect:/food?date=2026-07-31");
+        assertThat(successAttributes.getFlashAttributes().get("successMessage")).isEqualTo("Food logged again.");
+        assertThat(foodEntryService.quickLogSourceId).isEqualTo(3L);
+        assertThat(foodEntryService.quickLogDate).isEqualTo(LocalDate.of(2026, 7, 31));
+
+        foodEntryService.quickLogResult = new FoodEntryService.QuickLogResult(null, "Unavailable");
+        RedirectAttributesModelMap warningAttributes = new RedirectAttributesModelMap();
+
+        String warningRedirect = controller.quickLog(4L, "2026-08-01", warningAttributes);
+
+        assertThat(warningRedirect).isEqualTo("redirect:/food");
+        assertThat(warningAttributes.getFlashAttributes().get("warningMessage")).isEqualTo("Unavailable");
+    }
+
+    @Test
+    void quickLogMissingBlankOrInvalidDateFallsBackToTodayWithoutServerError() {
+        foodEntryService.quickLogResult = new FoodEntryService.QuickLogResult(
+                response(3L, LocalDateTime.of(2026, 8, 1, 18, 0)), null);
+
+        assertThat(controller.quickLog(3L, null, new RedirectAttributesModelMap())).isEqualTo("redirect:/food");
+        assertThat(controller.quickLog(3L, "  ", new RedirectAttributesModelMap())).isEqualTo("redirect:/food");
+
+        RedirectAttributesModelMap invalidAttributes = new RedirectAttributesModelMap();
+        assertThat(controller.quickLog(3L, "not-a-date", invalidAttributes)).isEqualTo("redirect:/food");
+        assertThat(invalidAttributes.getFlashAttributes().get("dateWarning"))
+                .isEqualTo("The requested date was invalid. Showing today instead.");
+        assertThat(foodEntryService.quickLogDate).isEqualTo(LocalDate.of(2026, 8, 1));
+    }
+
     private void assertUpdateRedirect(LocalDateTime eatenAt, String expectedRedirect) {
         Long id = (long) eatenAt.getDayOfYear();
         FoodEntryEditRequest request = new FoodEntryEditRequest();
@@ -128,6 +166,9 @@ class FoodEntryControllerTest {
         private Long updatedId;
         private FoodEntryEditRequest updatedRequest;
         private FoodEntryResponse updatedResponse;
+        private Long quickLogSourceId;
+        private LocalDate quickLogDate;
+        private QuickLogResult quickLogResult;
 
         private StubFoodEntryService() {
             super(null, null, null, CLOCK);
@@ -141,6 +182,18 @@ class FoodEntryControllerTest {
         @Override
         public List<FoodEntryResponse> listEntriesForDate(LocalDate date) {
             return List.of();
+        }
+
+        @Override
+        public List<FoodEntryResponse> listRecentFoods() {
+            return List.of();
+        }
+
+        @Override
+        public QuickLogResult quickLog(Long sourceEntryId, LocalDate selectedDate) {
+            quickLogSourceId = sourceEntryId;
+            quickLogDate = selectedDate;
+            return quickLogResult;
         }
 
         @Override
