@@ -2,6 +2,7 @@ package com.chaoting.dietassistant.food;
 
 import com.chaoting.dietassistant.profile.ProfileResponse;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Pageable;
 
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
@@ -214,6 +215,89 @@ class FoodEntryServiceTest {
         assertThat(foodEntryRepository.startInclusive).isEqualTo(LocalDateTime.of(2026, 6, 22, 0, 0));
         assertThat(foodEntryRepository.endExclusive).isEqualTo(LocalDateTime.of(2026, 6, 23, 0, 0));
         assertThat(responses).extracting(FoodEntryResponse::foodName).containsExactly("Lunch", "Breakfast");
+    }
+
+    @Test
+    void listRecentFoodsUsesProfileScopedLimitedRepositoryQuery() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry recent = snapshotEntry();
+        foodEntryRepository.recentEntries = List.of(recent);
+        FoodEntryService foodEntryService = service(foodEntryRepository, new FakeSavedFoodRepository());
+
+        List<FoodEntryResponse> responses = foodEntryService.listRecentFoods();
+
+        assertThat(responses).extracting(FoodEntryResponse::foodName).containsExactly("Bread");
+        assertThat(foodEntryRepository.profileIdForRecent).isEqualTo(7L);
+        assertThat(foodEntryRepository.recentPageable.getPageSize()).isEqualTo(5);
+    }
+
+    @Test
+    void quickLogCopiesSourceSnapshotWithoutNotesAndUsesSelectedDateWithClockTime() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry source = snapshotEntry();
+        foodEntryRepository.entryByIdAndProfile = Optional.of(source);
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        SavedFood currentSavedFood = savedFood("Changed name", "Changed brand", "2.00", "slice", "80.00");
+        currentSavedFood.setCalories(new BigDecimal("999.00"));
+        savedFoodRepository.activeSavedFood = Optional.of(currentSavedFood);
+        FoodEntryService foodEntryService = service(foodEntryRepository, savedFoodRepository);
+
+        FoodEntryService.QuickLogResult result = foodEntryService.quickLog(42L, LocalDate.of(2026, 6, 20));
+
+        assertThat(result.successful()).isTrue();
+        FoodEntryResponse copy = result.entry();
+        assertThat(copy.foodName()).isEqualTo("Bread");
+        assertThat(copy.savedFoodBrand()).isEqualTo("Bakery");
+        assertThat(copy.amount()).isEqualByComparingTo("1.50");
+        assertThat(copy.calories()).isEqualByComparingTo("150.00");
+        assertThat(copy.proteinGrams()).isEqualByComparingTo("6.00");
+        assertThat(copy.carbohydrateGrams()).isEqualByComparingTo("30.00");
+        assertThat(copy.fatGrams()).isEqualByComparingTo("1.50");
+        assertThat(copy.fiberGrams()).isEqualByComparingTo("3.00");
+        assertThat(copy.calculationMultiplier()).isEqualByComparingTo("1.50000000");
+        assertThat(copy.mealType()).isEqualTo(MealType.BREAKFAST);
+        assertThat(copy.eatenAt()).isEqualTo(LocalDateTime.of(2026, 6, 20, 10, 15, 30));
+        assertThat(copy.notes()).isNull();
+        assertThat(copy.createdAt()).isEqualTo(LocalDateTime.of(2026, 6, 22, 10, 15, 30));
+    }
+
+    @Test
+    void quickLogAllowsAValidStalePageSourceWhenANewerEntryExists() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FoodEntry source = snapshotEntry();
+        FoodEntry newer = snapshotEntry();
+        newer.setAmount(new BigDecimal("3.00"));
+        foodEntryRepository.entryByIdAndProfile = Optional.of(source);
+        foodEntryRepository.recentEntries = List.of(newer);
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        savedFoodRepository.activeSavedFood = Optional.of(savedFood("Bread", "Bakery", "1.00", "slice", "40.00"));
+        FoodEntryService foodEntryService = service(foodEntryRepository, savedFoodRepository);
+
+        FoodEntryService.QuickLogResult result = foodEntryService.quickLog(42L, LocalDate.of(2026, 6, 22));
+
+        assertThat(result.successful()).isTrue();
+        assertThat(result.entry().amount()).isEqualByComparingTo("1.50");
+    }
+
+    @Test
+    void quickLogRejectsMissingProfileScopedSourceOrInactiveSavedFood() {
+        FakeFoodEntryRepository foodEntryRepository = new FakeFoodEntryRepository();
+        FakeSavedFoodRepository savedFoodRepository = new FakeSavedFoodRepository();
+        FoodEntryService foodEntryService = service(foodEntryRepository, savedFoodRepository);
+
+        FoodEntryService.QuickLogResult missing = foodEntryService.quickLog(99L, LocalDate.of(2026, 6, 22));
+
+        assertThat(missing.successful()).isFalse();
+        assertThat(missing.errorMessage()).contains("no longer available");
+        assertThat(foodEntryRepository.idForDeleteLookup).isEqualTo(99L);
+        assertThat(foodEntryRepository.profileIdForDeleteLookup).isEqualTo(7L);
+
+        foodEntryRepository.entryByIdAndProfile = Optional.of(snapshotEntry());
+        FoodEntryService.QuickLogResult inactive = foodEntryService.quickLog(42L, LocalDate.of(2026, 6, 22));
+
+        assertThat(inactive.successful()).isFalse();
+        assertThat(inactive.errorMessage()).contains("inactive or no longer exists");
+        assertThat(foodEntryRepository.savedEntry()).isNull();
     }
 
     @Test
@@ -660,6 +744,7 @@ class FoodEntryServiceTest {
     private static class FakeFoodEntryRepository {
 
         private List<FoodEntry> entries = List.of();
+        private List<FoodEntry> recentEntries = List.of();
         private Optional<FoodEntry> entryByIdAndProfile = Optional.empty();
         private FoodEntry savedEntry;
         private FoodEntry deletedEntry;
@@ -668,6 +753,8 @@ class FoodEntryServiceTest {
         private LocalDateTime endExclusive;
         private Long idForDeleteLookup;
         private Long profileIdForDeleteLookup;
+        private Long profileIdForRecent;
+        private Pageable recentPageable;
 
         FoodEntryRepository proxy() {
             return (FoodEntryRepository) Proxy.newProxyInstance(
@@ -688,6 +775,11 @@ class FoodEntryServiceTest {
                             idForDeleteLookup = (Long) args[0];
                             profileIdForDeleteLookup = (Long) args[1];
                             return entryByIdAndProfile;
+                        }
+                        if (method.getName().equals("findRecentUniqueSavedFoodEntries")) {
+                            profileIdForRecent = (Long) args[0];
+                            recentPageable = (Pageable) args[1];
+                            return recentEntries;
                         }
                         if (method.getName().equals("delete")) {
                             deletedEntry = (FoodEntry) args[0];

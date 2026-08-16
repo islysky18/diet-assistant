@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -502,6 +503,114 @@ class FoodEntryIntegrationTest {
     }
 
     @Test
+    void recentFoodsAreUniqueNewestFirstExcludeInactiveAndQuickLogCopiesSnapshot()
+            throws IOException, InterruptedException {
+        SavedFood bread = saveSavedFood("Recent bread", "Bakery", true);
+        SavedFood yogurt = saveSavedFood("Hidden yogurt", "Dairy", true);
+        post("/food", foodEntryForm(bread.getId(), "1.00", "slice", LocalDateTime.now().minusHours(3)));
+        post("/food", foodEntryForm(yogurt.getId(), "1.00", "slice", LocalDateTime.now().minusHours(2)));
+        post("/food", foodEntryForm(bread.getId(), "2.00", "slice", LocalDateTime.now().minusHours(1)));
+        FoodEntry source = foodEntryRepository.findAll().stream()
+                .filter(entry -> entry.getSavedFoodId().equals(bread.getId()))
+                .max(java.util.Comparator.comparing(FoodEntry::getEatenAt))
+                .orElseThrow();
+        yogurt.setActive(false);
+        savedFoodRepository.save(yogurt);
+
+        HttpResponse<String> page = get("/food");
+
+        String recentSection = page.body().substring(
+                page.body().indexOf("<h2>Recent Foods</h2>"),
+                page.body().indexOf("<div class=\"content-grid\">")
+        );
+        assertThat(recentSection).contains("Recent bread", "2.00 slice", "Quick Log");
+        assertThat(recentSection).doesNotContain("Hidden yogurt");
+        assertThat(countOccurrences(recentSection, "Recent bread")).isEqualTo(1);
+
+        bread.setName("Renamed bread");
+        bread.setCalories(new BigDecimal("999.00"));
+        savedFoodRepository.save(bread);
+        LocalDate selectedDate = LocalDate.now().minusDays(2);
+
+        HttpResponse<String> quickLog = post("/food/quick-log", Map.of(
+                "sourceEntryId", source.getId().toString(),
+                "date", selectedDate.toString()
+        ));
+
+        assertThat(quickLog.body()).contains("Food logged again.");
+        FoodEntry copy = foodEntryRepository.findAll().stream()
+                .max(java.util.Comparator.comparing(FoodEntry::getId))
+                .orElseThrow();
+        assertThat(copy.getFoodName()).isEqualTo("Recent bread");
+        assertThat(copy.getAmount()).isEqualByComparingTo("2.00");
+        assertThat(copy.getCalories()).isEqualByComparingTo("200.00");
+        assertThat(copy.getMealType()).isEqualTo(source.getMealType());
+        assertThat(copy.getNotes()).isNull();
+        assertThat(copy.getEatenAt().toLocalDate()).isEqualTo(selectedDate);
+    }
+
+    @Test
+    void quickLogInactiveFoodReturnsWarningWithoutCreatingEntry() throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Inactive quick log", "Brand", true);
+        post("/food", foodEntryForm(savedFood.getId(), "1.00", "slice", LocalDateTime.now().minusHours(1)));
+        FoodEntry source = foodEntryRepository.findAll().getFirst();
+        savedFood.setActive(false);
+        savedFoodRepository.save(savedFood);
+
+        HttpResponse<String> response = post("/food/quick-log", Map.of(
+                "sourceEntryId", source.getId().toString(),
+                "date", LocalDate.now().toString()
+        ));
+
+        assertThat(response.body()).contains("inactive or no longer exists");
+        assertThat(foodEntryRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void quickLogDeletedFoodReturnsWarningWithoutCreatingEntry() throws IOException, InterruptedException {
+        SavedFood savedFood = saveSavedFood("Deleted quick log", "Brand", true);
+        post("/food", foodEntryForm(savedFood.getId(), "1.00", "slice", LocalDateTime.now().minusHours(1)));
+        FoodEntry source = foodEntryRepository.findAll().getFirst();
+        savedFoodRepository.delete(savedFood);
+        savedFoodRepository.flush();
+
+        HttpResponse<String> response = post("/food/quick-log", Map.of(
+                "sourceEntryId", source.getId().toString(),
+                "date", LocalDate.now().minusDays(1).toString()
+        ));
+
+        assertThat(response.body()).contains("inactive or no longer exists");
+        assertThat(foodEntryRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void recentFoodsQueryReturnsAtMostFiveUniqueFoodsInDeterministicNewestOrder()
+            throws IOException, InterruptedException {
+        LocalDateTime baseTime = LocalDateTime.now().minusHours(8);
+        SavedFood repeated = saveSavedFood("Repeated", "Brand", true);
+        post("/food", foodEntryForm(repeated.getId(), "1.00", "slice", baseTime));
+        post("/food", foodEntryForm(repeated.getId(), "2.00", "slice", baseTime.plusHours(7)));
+        for (int index = 1; index <= 5; index++) {
+            SavedFood food = saveSavedFood("Unique " + index, "Brand", true);
+            post("/food", foodEntryForm(food.getId(), "1.00", "slice", baseTime.plusHours(index)));
+        }
+        saveLegacyEntry("Legacy without saved food", "10.00", "1.00", "1.00", "1.00", "1.00",
+                baseTime.plusHours(9));
+        insertForeignRecentFood(888001L, 888002L, baseTime.plusHours(10));
+        Long profileId = profileService.getProfile().orElseThrow().id();
+
+        List<FoodEntry> recent = foodEntryRepository.findRecentUniqueSavedFoodEntries(
+                profileId, PageRequest.of(0, 5));
+
+        assertThat(recent).hasSize(5);
+        assertThat(recent).extracting(FoodEntry::getFoodName)
+                .containsExactly("Repeated", "Unique 5", "Unique 4", "Unique 3", "Unique 2");
+        assertThat(recent.getFirst().getAmount()).isEqualByComparingTo("2.00");
+        assertThat(recent).extracting(FoodEntry::getSavedFoodId).doesNotContainNull();
+        assertThat(recent).extracting(FoodEntry::getFoodName).doesNotContain("Foreign recent food");
+    }
+
+    @Test
     void foodEntryAndSummariesHandleNullableSavedFoodNutritionWithoutChangingIt()
             throws IOException, InterruptedException {
         SavedFood savedFood = saveSavedFood("Unknown nutrition", "Brand", true);
@@ -940,6 +1049,10 @@ class FoodEntryIntegrationTest {
         );
     }
 
+    private int countOccurrences(String value, String search) {
+        return value.split(Pattern.quote(search), -1).length - 1;
+    }
+
     private void createProfile() {
         ProfileRequest request = new ProfileRequest();
         request.setBirthYear(1988);
@@ -1036,6 +1149,32 @@ class FoodEntryIntegrationTest {
                     "SNACK",
                     LocalDateTime.now().minusMinutes(5),
                     LocalDateTime.now()
+            );
+        } finally {
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");
+        }
+    }
+
+    private void insertForeignRecentFood(Long savedFoodId, Long entryId, LocalDateTime eatenAt) {
+        insertForeignSavedFood(savedFoodId);
+        jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=0");
+        try {
+            jdbcTemplate.update("""
+                    INSERT INTO food_entries (
+                        id, profile_id, saved_food_id, food_name, amount, unit, calories,
+                        meal_type, eaten_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    entryId,
+                    999999L,
+                    savedFoodId,
+                    "Foreign recent food",
+                    new BigDecimal("1.00"),
+                    "slice",
+                    new BigDecimal("100.00"),
+                    "SNACK",
+                    eatenAt,
+                    eatenAt
             );
         } finally {
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS=1");

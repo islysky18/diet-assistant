@@ -15,6 +15,7 @@
 
     <p class="alert" th:if="${successMessage}" th:text="${successMessage}"></p>
     <p class="alert" th:if="${dateWarning}" th:text="${dateWarning}"></p>
+    <p class="alert alert--info" th:if="${warningMessage}" th:text="${warningMessage}"></p>
 
     <section class="card card--soft">
         <div class="section-heading">
@@ -40,6 +41,46 @@
                 <button type="submit">View date</button>
             </div>
         </form>
+    </section>
+
+    <section class="card section-spaced">
+        <div class="section-heading">
+            <div>
+                <p class="page-heading__eyebrow">Quick access</p>
+                <h2>Recent Foods</h2>
+            </div>
+        </div>
+        <p th:if="${#lists.isEmpty(recentFoods)}">No recent foods yet.</p>
+        <div class="table-wrap" th:unless="${#lists.isEmpty(recentFoods)}">
+            <table>
+                <thead>
+                <tr>
+                    <th>Food</th>
+                    <th>Brand</th>
+                    <th>Last amount</th>
+                    <th>Calories</th>
+                    <th>Meal</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="recentFood : ${recentFoods}">
+                    <td th:text="${recentFood.foodName}"></td>
+                    <td th:text="${recentFood.savedFoodBrand} ?: ''"></td>
+                    <td th:text="${recentFood.amount + ' ' + recentFood.unit}"></td>
+                    <td th:text="${recentFood.calories} ?: ''"></td>
+                    <td th:text="${recentFood.mealType.displayName}"></td>
+                    <td>
+                        <form th:action="@{/food/quick-log}" method="post">
+                            <input type="hidden" name="sourceEntryId" th:value="${recentFood.id}">
+                            <input type="hidden" name="date" th:value="${selectedDate}">
+                            <button class="button--secondary button--small" type="submit">Quick Log</button>
+                        </form>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 
     <div class="content-grid">

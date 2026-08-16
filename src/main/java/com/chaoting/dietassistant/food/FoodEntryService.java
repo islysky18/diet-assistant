@@ -2,6 +2,7 @@ package com.chaoting.dietassistant.food;
 
 import com.chaoting.dietassistant.profile.CurrentProfileProvider;
 import com.chaoting.dietassistant.profile.ProfileResponse;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,6 +23,7 @@ public class FoodEntryService {
     private static final int MULTIPLIER_SCALE = 8;
     private static final int NUTRITION_SCALE = 2;
     private static final RoundingMode ROUNDING_MODE = RoundingMode.HALF_UP;
+    private static final int RECENT_FOOD_LIMIT = 5;
 
     private final FoodEntryRepository foodEntryRepository;
     private final SavedFoodRepository savedFoodRepository;
@@ -96,6 +98,18 @@ public class FoodEntryService {
     }
 
     @Transactional(readOnly = true)
+    public List<FoodEntryResponse> listRecentFoods() {
+        return currentProfileProvider.getProfile()
+                .map(profile -> foodEntryRepository.findRecentUniqueSavedFoodEntries(
+                                profile.id(),
+                                PageRequest.of(0, RECENT_FOOD_LIMIT)
+                        ).stream()
+                        .map(this::toResponse)
+                        .toList())
+                .orElseGet(List::of);
+    }
+
+    @Transactional(readOnly = true)
     public DailyNutritionTotalsResponse todayTotals() {
         return totalsForDate(LocalDate.now(clock));
     }
@@ -157,6 +171,44 @@ public class FoodEntryService {
         foodEntry.setNotes(blankToNull(request.getNotes()));
         foodEntry.setCreatedAt(LocalDateTime.now(clock));
         return toResponse(foodEntryRepository.save(foodEntry));
+    }
+
+    @Transactional
+    public QuickLogResult quickLog(Long sourceEntryId, LocalDate selectedDate) {
+        ProfileResponse profile = requireProfile();
+        Optional<FoodEntry> sourceEntry = foodEntryRepository.findByIdAndProfileId(sourceEntryId, profile.id());
+        if (sourceEntry.isEmpty()) {
+            return QuickLogResult.failure("That recent food is no longer available to log.");
+        }
+
+        FoodEntry source = sourceEntry.get();
+        if (source.getSavedFoodId() == null
+                || savedFoodRepository.findByIdAndProfileIdAndActiveTrue(source.getSavedFoodId(), profile.id()).isEmpty()) {
+            return QuickLogResult.failure("That saved food is inactive or no longer exists.");
+        }
+        FoodEntry copy = new FoodEntry();
+        copy.setProfileId(profile.id());
+        copy.setSavedFoodId(source.getSavedFoodId());
+        copy.setSavedFoodName(source.getSavedFoodName());
+        copy.setSavedFoodBrand(source.getSavedFoodBrand());
+        copy.setSavedFoodReferenceAmount(source.getSavedFoodReferenceAmount());
+        copy.setSavedFoodReferenceUnit(source.getSavedFoodReferenceUnit());
+        copy.setSavedFoodReferenceWeightGrams(source.getSavedFoodReferenceWeightGrams());
+        copy.setFoodName(source.getFoodName());
+        copy.setAmount(source.getAmount());
+        copy.setUnit(source.getUnit());
+        copy.setCalories(source.getCalories());
+        copy.setProteinGrams(source.getProteinGrams());
+        copy.setCarbohydrateGrams(source.getCarbohydrateGrams());
+        copy.setFatGrams(source.getFatGrams());
+        copy.setFiberGrams(source.getFiberGrams());
+        copy.setCalculationMultiplier(source.getCalculationMultiplier());
+        copy.setMealType(source.getMealType());
+        LocalDateTime now = LocalDateTime.now(clock);
+        copy.setEatenAt(LocalDateTime.of(selectedDate, now.toLocalTime()));
+        copy.setNotes(null);
+        copy.setCreatedAt(now);
+        return QuickLogResult.success(toResponse(foodEntryRepository.save(copy)));
     }
 
     @Transactional(readOnly = true)
@@ -391,5 +443,20 @@ public class FoodEntryService {
     }
 
     public record EditValidationError(String field, String message) {
+    }
+
+    public record QuickLogResult(FoodEntryResponse entry, String errorMessage) {
+
+        static QuickLogResult success(FoodEntryResponse entry) {
+            return new QuickLogResult(entry, null);
+        }
+
+        static QuickLogResult failure(String errorMessage) {
+            return new QuickLogResult(null, errorMessage);
+        }
+
+        public boolean successful() {
+            return entry != null;
+        }
     }
 }

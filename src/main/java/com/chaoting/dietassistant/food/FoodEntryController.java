@@ -71,6 +71,22 @@ public class FoodEntryController {
         return redirectToDate(created.eatenAt().toLocalDate());
     }
 
+    @PostMapping("/food/quick-log")
+    public String quickLog(
+            @RequestParam Long sourceEntryId,
+            @RequestParam(required = false) String date,
+            RedirectAttributes redirectAttributes
+    ) {
+        LocalDate selectedDate = quickLogDate(date, redirectAttributes);
+        FoodEntryService.QuickLogResult result = foodEntryService.quickLog(sourceEntryId, selectedDate);
+        if (result.successful()) {
+            redirectAttributes.addFlashAttribute("successMessage", "Food logged again.");
+        } else {
+            redirectAttributes.addFlashAttribute("warningMessage", result.errorMessage());
+        }
+        return redirectToDate(selectedDate);
+    }
+
     @GetMapping("/food/{id}/edit")
     public String editFoodEntry(@PathVariable Long id, Model model) {
         FoodEntryResponse foodEntry = foodEntryService.getForEdit(id);
@@ -118,6 +134,7 @@ public class FoodEntryController {
         model.addAttribute("mealTypes", MealType.values());
         model.addAttribute("savedFoods", savedFoodService.listActiveSavedFoods());
         model.addAttribute("foodEntries", foodEntries);
+        model.addAttribute("recentFoods", foodEntryService.listRecentFoods());
         model.addAttribute("dailyTotals", foodEntryService.calculateTotals(foodEntries));
         model.addAttribute("selectedDate", selectedDate);
         model.addAttribute("previousDate", selectedDate.minusDays(1));
@@ -153,6 +170,18 @@ public class FoodEntryController {
             }
         }
         return eatenAt == null ? LocalDate.now(clock) : eatenAt.toLocalDate();
+    }
+
+    private LocalDate quickLogDate(String date, RedirectAttributes redirectAttributes) {
+        if (date == null || date.isBlank()) {
+            return LocalDate.now(clock);
+        }
+        try {
+            return LocalDate.parse(date);
+        } catch (DateTimeParseException exception) {
+            redirectAttributes.addFlashAttribute("dateWarning", "The requested date was invalid. Showing today instead.");
+            return LocalDate.now(clock);
+        }
     }
 
     private String redirectToDate(LocalDate date) {
