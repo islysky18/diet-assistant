@@ -98,6 +98,14 @@ Business logic must be placed in services or dedicated domain classes.
 - Prefer simple and readable code over abstraction.
 - Run tests after making changes.
 
+# UI Engineering Rules
+
+- Prefer component-specific classes for text inputs, checkboxes, radios, and selects over generic `input` tag selectors.
+- Text-input sizing must not unintentionally apply to checkbox or radio controls. A selector such as `.form-field input` must explicitly exclude checkbox and radio types, or be replaced with a component-specific selector.
+- Verify every HTML/CSS layout change at both baseline viewports: desktop `1280 x 800` and mobile `390 x 844`.
+- Treat no horizontal page overflow, reasonably sized checkbox/radio controls, visible controls and primary actions, no obvious control overlap, and usable desktop/mobile layouts as objective correctness checks.
+- Keep objective UI regression checks separate from subjective visual design review; avoid brittle pixel-perfect assertions unless a stable visual baseline is intentional.
+
 # Working Process
 
 Before implementing a task:

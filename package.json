@@ -1,0 +1,12 @@
+{
+  "name": "diet-assistant-ui-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:ui": "./scripts/run-ui-tests.sh",
+    "test:ui:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}
