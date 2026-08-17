@@ -199,6 +199,23 @@ Use it only when you intentionally want to reset the local MySQL database.
 ./mvnw test
 ```
 
+### Browser UI tests
+
+Install Node.js 22 or later and Docker, then install the locked Playwright dependency and its Chromium browser:
+
+```shell
+npm ci
+npx playwright install chromium
+```
+
+Run the complete, self-contained UI suite with one command:
+
+```shell
+npm run test:ui
+```
+
+The command starts an isolated MySQL container and the real Spring Boot application on port 18080, waits for readiness, runs Chromium tests, and cleans up both processes. It does not use `.env` or existing developer data. Tests cover `/foods` and `/food` at desktop `1280 x 800` and mobile `390 x 844`, including page/control visibility, checkbox sizing, and horizontal overflow. Playwright retains screenshots, traces, and video on failure; pixel-based screenshot baselines are intentionally deferred to avoid font-rendering flakes across environments.
+
 ## Daily energy and calorie balance
 
 The Today dashboard combines Food Entry snapshot calories with a daily activity aggregate. It shows active and resting energy, burned energy so far, steps, exercise minutes, current balance, and (for today only) an end-of-day estimate. Historical Food Entries are never recalculated from Saved Foods.

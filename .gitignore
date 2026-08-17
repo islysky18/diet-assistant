@@ -21,6 +21,9 @@ application-*.local.yaml
 ### Spring Boot ###
 logs/
 *.log
+node_modules/
+playwright-report/
+test-results/
 
 ### Docker / local database data ###
 .docker/
