@@ -38,13 +38,34 @@ public class UsdaFoodImportService {
         request.setReferenceAmount(new BigDecimal("100"));
         request.setReferenceUnit("g");
         request.setReferenceWeightGrams(null);
-        request.setCalories(nutrient(food, "kcal", 1008, "energy"));
+        request.setCalories(calories(food));
         request.setProteinGrams(nutrient(food, "g", 1003, "protein"));
         request.setCarbohydrateGrams(nutrient(food, "g", 1005, "carbohydrate"));
         request.setFatGrams(nutrient(food, "g", 1004, "total lipid", "total fat"));
         request.setFiberGrams(nutrient(food, "g", 1079, "fiber"));
         request.setNotes("Source: USDA FoodData Central\nFDC ID: " + fdcId);
         return request;
+    }
+
+    private BigDecimal calories(JsonNode food) {
+        for (int nutrientId : new int[]{2048, 2047, 1008}) {
+            BigDecimal amount = nutrientById(food, "kcal", nutrientId);
+            if (amount != null) return amount;
+        }
+        return null;
+    }
+
+    private BigDecimal nutrientById(JsonNode food, String expectedUnit, int nutrientId) {
+        JsonNode nutrients = food.get("foodNutrients");
+        if (nutrients == null || !nutrients.isArray()) return null;
+        for (JsonNode entry : nutrients) {
+            JsonNode nutrient = entry.path("nutrient");
+            String unit = UsdaFoodDataClient.text(nutrient, "unitName");
+            if (nutrient.path("id").asInt(0) == nutrientId && expectedUnit.equalsIgnoreCase(unit == null ? "" : unit)) {
+                return scaledAmount(entry);
+            }
+        }
+        return null;
     }
 
     private BigDecimal nutrient(JsonNode food, String expectedUnit, int nutrientNumber, String... names) {
@@ -62,10 +83,15 @@ public class UsdaFoodImportService {
                 for (String candidate : names) matches |= normalized.contains(candidate);
             }
             if (matches) {
-                BigDecimal amount = UsdaFoodDataClient.decimal(entry, "amount");
-                return amount == null ? null : amount.setScale(Math.min(2, Math.max(0, amount.scale())), RoundingMode.HALF_UP);
+                return scaledAmount(entry);
             }
         }
         return null;
+    }
+
+    private BigDecimal scaledAmount(JsonNode entry) {
+        BigDecimal amount = UsdaFoodDataClient.decimal(entry, "amount");
+        return amount == null ? null
+                : amount.setScale(Math.min(2, Math.max(0, amount.scale())), RoundingMode.HALF_UP);
     }
 }

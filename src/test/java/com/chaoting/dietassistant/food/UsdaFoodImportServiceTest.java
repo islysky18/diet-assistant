@@ -3,9 +3,8 @@ package com.chaoting.dietassistant.food;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.math.BigDecimal;
-
 import static org.assertj.core.api.Assertions.assertThat;
+
 class UsdaFoodImportServiceTest {
 
     private final UsdaFoodImportService service = new UsdaFoodImportService(null);
@@ -33,14 +32,64 @@ class UsdaFoodImportServiceTest {
     }
 
     @Test
-    void caloriesUseKcalAndNeverKilojoules() throws Exception {
+    void foundationFoodPrefersAtwaterSpecificRegardlessOfArrayOrder() throws Exception {
+        var generalFirst = service.mapDetails(json.readTree("""
+                {"fdcId":124,"description":"Rice","foodNutrients":[
+                  {"nutrient":{"id":2047,"name":"Energy (Atwater General Factors)","unitName":"kcal"},"amount":131},
+                  {"nutrient":{"id":2048,"name":"Energy (Atwater Specific Factors)","unitName":"kcal"},"amount":129}
+                ]}
+                """));
+        var specificFirst = service.mapDetails(json.readTree("""
+                {"fdcId":124,"description":"Rice","foodNutrients":[
+                  {"nutrient":{"id":2048,"name":"Energy (Atwater Specific Factors)","unitName":"kcal"},"amount":129},
+                  {"nutrient":{"id":2047,"name":"Energy (Atwater General Factors)","unitName":"kcal"},"amount":131}
+                ]}
+                """));
+
+        assertThat(generalFirst.getCalories()).isEqualByComparingTo("129");
+        assertThat(specificFirst.getCalories()).isEqualByComparingTo("129");
+    }
+
+    @Test
+    void foundationFoodFallsBackToAtwaterGeneral() throws Exception {
         var request = service.mapDetails(json.readTree("""
                 {"fdcId":124,"description":"Rice","foodNutrients":[
-                  {"nutrient":{"id":1008,"name":"Energy","unitName":"kJ"},"amount":544},
+                  {"nutrient":{"id":2047,"name":"Energy (Atwater General Factors)","unitName":"kcal"},"amount":131}
+                ]}
+                """));
+        assertThat(request.getCalories()).isEqualByComparingTo("131");
+    }
+
+    @Test
+    void foodFallsBackToLegacyEnergy() throws Exception {
+        var request = service.mapDetails(json.readTree("""
+                {"fdcId":124,"description":"Rice","foodNutrients":[
                   {"nutrient":{"id":1008,"name":"Energy","unitName":"kcal"},"amount":130}
                 ]}
                 """));
-        assertThat(request.getCalories()).isEqualByComparingTo(new BigDecimal("130"));
+        assertThat(request.getCalories()).isEqualByComparingTo("130");
+    }
+
+    @Test
+    void kilojoulesAreNeverUsedAsCalories() throws Exception {
+        var request = service.mapDetails(json.readTree("""
+                {"fdcId":124,"description":"Rice","foodNutrients":[
+                  {"nutrient":{"id":2048,"name":"Energy (Atwater Specific Factors)","unitName":"kJ"},"amount":540},
+                  {"nutrient":{"id":2047,"name":"Energy (Atwater General Factors)","unitName":"kJ"},"amount":544},
+                  {"nutrient":{"id":1008,"name":"Energy","unitName":"kJ"},"amount":543}
+                ]}
+                """));
+        assertThat(request.getCalories()).isNull();
+    }
+
+    @Test
+    void unrelatedKcalNutrientContainingEnergyIsNeverUsed() throws Exception {
+        var request = service.mapDetails(json.readTree("""
+                {"fdcId":124,"description":"Rice","foodNutrients":[
+                  {"nutrient":{"id":9999,"name":"Unrelated energy-like nutrient","unitName":"kcal"},"amount":999}
+                ]}
+                """));
+        assertThat(request.getCalories()).isNull();
     }
 
     @Test
