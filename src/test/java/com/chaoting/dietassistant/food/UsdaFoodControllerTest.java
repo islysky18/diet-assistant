@@ -37,11 +37,13 @@ class UsdaFoodControllerTest {
     @Test
     void getSearchPageAndSubmitQueryDisplayResults() throws Exception {
         mvc.perform(get("/foods/usda")).andExpect(status().isOk())
-                .andExpect(view().name("food-usda-search"));
+                .andExpect(view().name("food-usda-search"))
+                .andExpect(model().attribute("searchPerformed", false));
         when(usda.search("banana")).thenReturn(List.of(
                 new UsdaFoodSearchResult(10, "Bananas, raw", "Foundation", null, null, null)));
         mvc.perform(get("/foods/usda").param("q", "banana"))
                 .andExpect(status().isOk()).andExpect(model().attribute("searchQuery", "banana"))
+                .andExpect(model().attribute("searchPerformed", true))
                 .andExpect(model().attributeExists("searchResults"));
     }
 

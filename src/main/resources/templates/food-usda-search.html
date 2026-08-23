@@ -28,13 +28,13 @@
     </section>
     <section class="card" th:if="${usdaConfigured}">
         <div class="section-heading"><h2>Results</h2></div>
-        <div class="empty-state" th:if="${!searchPerformed and usdaError == null}">
+        <div class="empty-state" th:if="${searchPerformed == false and usdaError == null}">
             <p>Search for a food to see FoodData Central results.</p>
         </div>
-        <div class="empty-state" th:if="${searchPerformed and #lists.isEmpty(searchResults)}">
+        <div class="empty-state" th:if="${searchPerformed and usdaError == null and #lists.isEmpty(searchResults)}">
             <p>No USDA foods matched your search. Try a shorter or more general name.</p>
         </div>
-        <div class="usda-results" th:if="${searchPerformed and !#lists.isEmpty(searchResults)}">
+        <div class="usda-results" th:if="${searchPerformed and usdaError == null and !#lists.isEmpty(searchResults)}">
             <article class="usda-result" th:each="food : ${searchResults}">
                 <div>
                     <h3 th:text="${food.description}"></h3>

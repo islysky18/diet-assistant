@@ -34,10 +34,11 @@ public class UsdaFoodController {
         }
         model.addAttribute("searchQuery", q);
         model.addAttribute("usdaConfigured", usdaService.isConfigured());
-        if (!q.isBlank() && usdaService.isConfigured()) {
+        boolean searchPerformed = !q.isBlank();
+        model.addAttribute("searchPerformed", searchPerformed);
+        if (searchPerformed && usdaService.isConfigured()) {
             try {
                 model.addAttribute("searchResults", usdaService.search(q));
-                model.addAttribute("searchPerformed", true);
             } catch (UsdaFoodDataException exception) {
                 model.addAttribute("usdaError", exception.getMessage());
             }
