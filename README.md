@@ -358,3 +358,7 @@ CI builds this Dockerfile with the GitHub Actions build cache, runs the version/
 Manual creation and photo-import confirmation compare the proposed food with active Saved Foods before creating it. Matching uses normalized brand, name, reference amount/unit, and exact nullable nutrition values; notes are intentionally ignored. A server-held, short-lived review token preserves the validated proposal while the user chooses an existing item, creates the new item anyway, or returns to edit it. Inactive foods never block creation and are never reactivated automatically.
 
 The photo path keeps the pending import's atomic confirmation claim, so competing or repeated duplicate-review actions have one terminal result. The first version intentionally has no global database unique constraint: two independent manual requests submitted concurrently can still create identical foods. Avoiding that race without blocking legitimate product variants requires a later, explicit identity design.
+
+# USDA FoodData Central (optional)
+
+Saved foods can optionally be discovered and imported from USDA FoodData Central. Supply the API key to the Spring Boot server as `USDA_FDC_API_KEY` (for local development, add it to your uncommitted `.env`). When the variable is missing, USDA search displays as unavailable; manual Saved Food creation and product-photo import continue to work normally.

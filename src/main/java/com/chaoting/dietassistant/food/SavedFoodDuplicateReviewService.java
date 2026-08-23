@@ -39,6 +39,10 @@ public class SavedFoodDuplicateReviewService {
         return begin(Source.PHOTO, importId, request);
     }
 
+    public Optional<String> beginUsda(String fdcId, SavedFoodRequest request) {
+        return begin(Source.USDA, fdcId, request);
+    }
+
     public Optional<ReviewView> find(String token) {
         ReviewState state = validState(token);
         if (state == null) return Optional.empty();
@@ -111,7 +115,7 @@ public class SavedFoodDuplicateReviewService {
         return copy;
     }
 
-    public enum Source { MANUAL, PHOTO }
+    public enum Source { MANUAL, PHOTO, USDA }
     public enum Outcome { USED_EXISTING, CREATED, CANDIDATE_UNAVAILABLE, MISSING }
     public record ReviewView(String token, Source source, String importId, SavedFoodRequest requested,
                              List<SavedFoodResponse> candidates) { }
