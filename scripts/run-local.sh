@@ -55,7 +55,9 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     exit 1
   fi
 
-  [[ "$variable_name" == DIET_ASSISTANT_* ]] && export "$variable_name=$variable_value"
+  if [[ "$variable_name" == DIET_ASSISTANT_* || "$variable_name" == USDA_FDC_API_KEY ]]; then
+    export "$variable_name=$variable_value"
+  fi
 done < .env
 
 required_variables=(

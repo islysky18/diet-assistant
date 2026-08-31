@@ -82,8 +82,11 @@ public class SavedFoodDuplicateReviewController {
     }
 
     private String sourceRedirect(SavedFoodDuplicateReviewService.ReviewView review) {
-        return review.source() == SavedFoodDuplicateReviewService.Source.PHOTO
-                ? "redirect:/foods/import/" + review.importId() : "redirect:/foods";
+        return switch (review.source()) {
+            case PHOTO -> "redirect:/foods/import/" + review.importId();
+            case USDA -> "redirect:/foods/usda/" + review.importId();
+            case MANUAL -> "redirect:/foods";
+        };
     }
 
     private String missing(RedirectAttributes redirectAttributes) {

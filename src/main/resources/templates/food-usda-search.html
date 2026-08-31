@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Search USDA foods')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: header('foods')}"></header>
+<main class="page-shell page-shell--narrow">
+    <div class="page-heading">
+        <div>
+            <p class="page-heading__eyebrow">Food library</p>
+            <h1>Search USDA</h1>
+            <p class="page-heading__description">Find nutrition data from USDA FoodData Central, then review every value before importing it.</p>
+        </div>
+        <a class="button button--secondary" th:href="@{/foods}">Back to foods</a>
+    </div>
+    <p class="alert alert--error" role="alert" th:if="${errorMessage}" th:text="${errorMessage}"></p>
+    <p class="alert alert--error" role="alert" th:unless="${usdaConfigured}">USDA food search is not configured. Set USDA_FDC_API_KEY on the server to enable it. Manual food creation remains available.</p>
+    <p class="alert alert--error" role="alert" th:if="${usdaError}" th:text="${usdaError}"></p>
+    <section class="card">
+        <form class="form-grid" th:action="@{/foods/usda}" method="get">
+            <div class="form-field form-field--full">
+                <label for="q">Food name</label>
+                <input id="q" name="q" type="search" th:value="${searchQuery}" placeholder="e.g. sweet potato" maxlength="200" required th:disabled="${!usdaConfigured}">
+            </div>
+            <div class="form-actions">
+                <button type="submit" th:disabled="${!usdaConfigured}">Search USDA</button>
+            </div>
+        </form>
+    </section>
+    <section class="card" th:if="${usdaConfigured}">
+        <div class="section-heading"><h2>Results</h2></div>
+        <div class="empty-state" th:if="${searchPerformed == false and usdaError == null}">
+            <p>Search for a food to see FoodData Central results.</p>
+        </div>
+        <div class="empty-state" th:if="${searchPerformed and usdaError == null and #lists.isEmpty(searchResults)}">
+            <p>No USDA foods matched your search. Try a shorter or more general name.</p>
+        </div>
+        <div class="usda-results" th:if="${searchPerformed and usdaError == null and !#lists.isEmpty(searchResults)}">
+            <article class="usda-result" th:each="food : ${searchResults}">
+                <div>
+                    <h3 th:text="${food.description}"></h3>
+                    <p class="help-text">
+                        <span th:text="${food.dataType} ?: 'USDA food'"></span>
+                        <span th:if="${food.brand}" th:text="${' · ' + food.brand}"></span>
+                    </p>
+                    <p class="help-text">
+                        <span th:text="${'FDC ID ' + food.fdcId}"></span>
+                        <span th:if="${food.servingSize != null}" th:text="${' · Serving ' + food.servingSize + ' ' + (food.servingSizeUnit ?: '')}"></span>
+                    </p>
+                </div>
+                <a class="button button--small" th:href="@{/foods/usda/{id}(id=${food.fdcId})}">Review import</a>
+            </article>
+        </div>
+    </section>
+</main>
+</body>
+</html>

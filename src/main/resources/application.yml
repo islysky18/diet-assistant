@@ -14,6 +14,9 @@ spring:
 
 diet-assistant:
   local-sync-token: ${DIET_ASSISTANT_LOCAL_SYNC_TOKEN:}
+  usda:
+    api-key: ${USDA_FDC_API_KEY:}
+    base-url: https://api.nal.usda.gov/fdc/v1
   food-import:
     pending-directory: ${DIET_ASSISTANT_PENDING_FOOD_IMPORT_DIRECTORY:data/pending-food-imports}
     max-file-size-bytes: 10485760
