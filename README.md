@@ -68,17 +68,17 @@ The sync stores one aggregate per day and is safe to repeat. It does not expose 
 
 The Today dashboard brings nutrition goals, meal history, and daily energy data into one view.
 
-![Today dashboard with nutrition and energy progress](docs/images/today-dashboard.jpg)
+[![Today dashboard with nutrition and energy progress](docs/images/today-dashboard.jpg)](docs/images/today-dashboard.jpg)
 
 | Food Library | Product photo review |
 | --- | --- |
-| ![Saved Food Library with reusable serving and nutrition data](docs/images/food-library.jpg) | ![Editable product photo recognition result ready for confirmation](docs/images/photo-recognition-review.jpg) |
+| [![Saved Food Library with reusable serving and nutrition data](docs/images/food-library.jpg)](docs/images/food-library.jpg) | [![Editable product photo recognition result ready for confirmation](docs/images/photo-recognition-review.jpg)](docs/images/photo-recognition-review.jpg) |
 
 USDA FoodData Central search stays server-side and turns selected results into an editable 100 g import before saving.
 
 | USDA search | USDA import review |
 | --- | --- |
-| ![USDA FoodData Central search results for sweet potato](docs/images/usda-search.jpg) | ![Editable USDA food import review](docs/images/usda-import-review.jpg) |
+| [![USDA FoodData Central search results for sweet potato](docs/images/usda-search.jpg)](docs/images/usda-search.jpg) | [![Editable USDA food import review](docs/images/usda-import-review.jpg)](docs/images/usda-import-review.jpg) |
 
 All screenshots use fictional demo records in an isolated local database. No personal health information or credentials are included.
 
