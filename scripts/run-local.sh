@@ -80,6 +80,13 @@ if (( ${#missing_variables[@]} > 0 )); then
   exit 1
 fi
 
+# Map the application's .env names to Spring Boot's standard datasource
+# properties so a fresh clone does not depend on an ignored
+# application-local.yml file.
+export SPRING_DATASOURCE_URL="$DIET_ASSISTANT_DB_URL"
+export SPRING_DATASOURCE_USERNAME="$DIET_ASSISTANT_DB_USERNAME"
+export SPRING_DATASOURCE_PASSWORD="$DIET_ASSISTANT_DB_PASSWORD"
+
 export SPRING_PROFILES_ACTIVE=local
 
 ./mvnw spring-boot:run -Dspring-boot.run.profiles=local

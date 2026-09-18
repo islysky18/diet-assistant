@@ -145,7 +145,7 @@ Replace the placeholder passwords in `.env`, then run:
 
 Open [http://localhost:8080/](http://localhost:8080/).
 
-The local launcher selects Java 21 on macOS when available, safely loads supported values from `.env` without executing the file as shell code, and activates the `local` Spring profile.
+The local launcher selects Java 21 on macOS when available, safely loads supported values from `.env` without executing the file as shell code, maps the database values to Spring Boot's datasource properties, and activates the `local` Spring profile. A fresh clone does not require an untracked `application-local.yml`.
 
 ### Local configuration
 
@@ -184,10 +184,11 @@ DIET_ASSISTANT_PENDING_FOOD_IMPORT_DIRECTORY
 1. Open **Run | Edit Configurations**.
 2. Select the Spring Boot configuration for `DietAssistantApplication`.
 3. Set **Active profiles** to `local`.
-4. Add the required variables from `.env`, or use an environment-file plugin.
-5. Select Java 21 for the project SDK and run configuration.
+4. Set `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, and `SPRING_DATASOURCE_PASSWORD` to the corresponding database values in `.env`.
+5. Add optional integration variables directly when needed, including `USDA_FDC_API_KEY` and `DIET_ASSISTANT_LOCAL_SYNC_TOKEN`.
+6. Select Java 21 for the project SDK and run configuration.
 
-Use the same environment values as `.env` when launching from IntelliJ so the IDE run matches the command-line configuration.
+Using `./scripts/run-local.sh` remains the recommended path because it performs this mapping automatically.
 
 ## Optional Integrations
 
@@ -399,7 +400,7 @@ docker compose logs mysql
 
 ### Spring Boot has no datasource URL
 
-`Failed to configure a DataSource: 'url' attribute is not specified` or `No active profile set` means the local runtime configuration was not loaded. Start through:
+`Failed to configure a DataSource: 'url' attribute is not specified` means the datasource variables were not mapped. `No active profile set` means the local runtime profile was not selected. Start through the launcher, which handles both:
 
 ```shell
 ./scripts/run-local.sh
