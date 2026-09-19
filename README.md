@@ -64,9 +64,23 @@ Today dashboard
 
 The sync stores one aggregate per day and is safe to repeat. It does not expose the application to the public internet.
 
-## Screenshots
+## Project Showcase
 
-> Screenshots and a short demo are planned for the next portfolio-polish phase.
+The Today dashboard brings nutrition goals, meal history, and daily energy data into one view.
+
+[![Today dashboard with nutrition and energy progress](docs/images/today-dashboard.jpg)](docs/images/today-dashboard.jpg)
+
+| Food Library | Product photo review |
+| --- | --- |
+| [![Saved Food Library with reusable serving and nutrition data](docs/images/food-library.jpg)](docs/images/food-library.jpg) | [![Editable product photo recognition result ready for confirmation](docs/images/photo-recognition-review.jpg)](docs/images/photo-recognition-review.jpg) |
+
+USDA FoodData Central search stays server-side and turns selected results into an editable 100 g import before saving.
+
+| USDA search | USDA import review |
+| --- | --- |
+| [![USDA FoodData Central search results for sweet potato](docs/images/usda-search.jpg)](docs/images/usda-search.jpg) | [![Editable USDA food import review](docs/images/usda-import-review.jpg)](docs/images/usda-import-review.jpg) |
+
+All screenshots use fictional demo records in an isolated local database. No personal health information or credentials are included.
 
 ## Architecture
 
@@ -446,7 +460,7 @@ Use it only when an intentional clean reset is needed.
 
 ## Roadmap
 
-- Add screenshots and a short demo for portfolio presentation.
+- Add a short demo video for portfolio presentation.
 - Improve the mobile browser experience and evaluate a PWA workflow.
 - Expand authoritative nutrition-data coverage beyond the current USDA integration.
 - Make food search and logging faster for repeated daily use.
@@ -456,4 +470,4 @@ Use it only when an intentional clean reset is needed.
 
 ## Project Status
 
-The current milestone delivers the core local nutrition workflow: food-library management, dated meal logging, daily and weekly nutrition summaries, product-photo and USDA imports, duplicate review, and daily energy tracking. The next milestone focuses on screenshots, demo material, and final portfolio polish.
+MVP v1 delivers the core local nutrition workflow: food-library management, dated meal logging, daily and weekly nutrition summaries, product-photo and USDA imports, duplicate review, and daily energy tracking. The repository is now in feature freeze while documentation, demo material, and release presentation are finalized.
