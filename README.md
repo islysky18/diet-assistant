@@ -468,6 +468,10 @@ Use it only when an intentional clean reset is needed.
 - Evaluate authentication and multi-user support only after the single-user workflow is mature.
 - Explore more direct mobile health-data integration.
 
+## License
+
+This project is available under the [MIT License](LICENSE).
+
 ## Project Status
 
 MVP v1 delivers the core local nutrition workflow: food-library management, dated meal logging, daily and weekly nutrition summaries, product-photo and USDA imports, duplicate review, and daily energy tracking. The repository is now in feature freeze while documentation, demo material, and release presentation are finalized.
